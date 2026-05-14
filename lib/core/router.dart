@@ -63,25 +63,31 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).uri.path;
+    final showQuickAdd = location != '/goals';
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       drawer: _AppDrawer(),
       body: child,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/quick-add'),
-        backgroundColor: AppColors.teal,
-        elevation: 0,
-        icon: const Icon(Icons.bolt, color: Colors.white),
-        label: const Text(
-          'Quick Add',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: showQuickAdd
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/quick-add'),
+              backgroundColor: AppColors.teal,
+              elevation: 0,
+              icon: const Icon(Icons.bolt, color: Colors.white),
+              label: const Text(
+                'Quick Add',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: showQuickAdd
+          ? FloatingActionButtonLocation.centerFloat
+          : null,
     );
   }
 }
