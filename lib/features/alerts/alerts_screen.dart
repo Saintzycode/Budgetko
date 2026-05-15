@@ -1,3 +1,4 @@
+import '../../core/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/repositories/providers.dart';
@@ -20,7 +21,7 @@ class AlertsScreen extends ConsumerWidget {
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu,
                 color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: () => openDrawer(),
           ),
         ),
         title: const Text(
@@ -94,16 +95,18 @@ class AlertsScreen extends ConsumerWidget {
                           ? AppColors.warning
                           : AppColors.teal;
 
-                  return GlowContainer(
-                    glowColor: limit != null
-                        ? statusColor
-                        : AppColors.bgSurface,
-                    glowRadius: 8,
-                    padding: const EdgeInsets.all(14),
-                    color: AppColors.bgCard,
-                    borderRadius: BorderRadius.circular(18),
-                    child: Column(
-                      children: [
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: GlowContainer(
+                      glowColor: limit != null
+                          ? statusColor
+                          : AppColors.bgSurface,
+                      glowRadius: 8,
+                      padding: const EdgeInsets.all(14),
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Column(
+                        children: [
                         Row(
                           children: [
                             Container(
@@ -246,7 +249,8 @@ class AlertsScreen extends ConsumerWidget {
                             ],
                           ),
                         ],
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 }),

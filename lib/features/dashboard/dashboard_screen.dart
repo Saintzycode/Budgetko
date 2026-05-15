@@ -1,3 +1,4 @@
+import '../../core/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -27,7 +28,7 @@ class DashboardScreen extends ConsumerWidget {
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: () => openDrawer(),
           ),
         ),
         title: Row(
@@ -45,14 +46,11 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: const Center(
-                child: Text(
-                  '₱',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/android/Logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -101,7 +99,7 @@ class DashboardScreen extends ConsumerWidget {
                     .read(selectedWalletProvider.notifier)
                     .state = id,
               ),
-              loading: () => const SizedBox(),
+              loading: () => const _WalletChipsSkeleton(),
               error: (e, _) => const SizedBox(),
             ),
             const SizedBox(height: 16),
@@ -124,7 +122,7 @@ class DashboardScreen extends ConsumerWidget {
                   budget: budget,
                   spent: totals.expense,
                 ),
-                loading: () => const SizedBox(),
+                loading: () => const _LoadingCard(height: 104),
                 error: (e, _) => const SizedBox(),
               ),
             if (budget > 0) const SizedBox(height: 16),
@@ -332,6 +330,29 @@ class _WalletChips extends StatelessWidget {
       'bank' => Icons.account_balance_outlined,
       _ => Icons.wallet_outlined,
     };
+  }
+}
+
+class _WalletChipsSkeleton extends StatelessWidget {
+  const _WalletChipsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: _SkeletonPulse(
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: const [
+            _SkeletonBlock(width: 54, height: 36, radius: 20),
+            SizedBox(width: 8),
+            _SkeletonBlock(width: 96, height: 36, radius: 20),
+            SizedBox(width: 8),
+            _SkeletonBlock(width: 118, height: 36, radius: 20),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -916,18 +937,140 @@ class _LoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _SkeletonPulse(
+      child: Container(
+        height: height,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.bgSurface,
+            width: 0.5,
+          ),
+        ),
+        child: height <= 100
+            ? const _SkeletonTile()
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SkeletonBlock(
+                      width: 96, height: 12, radius: 6),
+                  const SizedBox(height: 10),
+                  const _SkeletonBlock(
+                      width: 190, height: 26, radius: 8),
+                  const SizedBox(height: 18),
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: _SkeletonBlock(
+                              height: double.infinity,
+                              radius: 12),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: _SkeletonBlock(
+                              height: double.infinity,
+                              radius: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _SkeletonTile extends StatelessWidget {
+  const _SkeletonTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        _SkeletonBlock(width: 42, height: 42, radius: 12),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonBlock(width: 150, height: 12, radius: 6),
+              SizedBox(height: 8),
+              _SkeletonBlock(width: 92, height: 10, radius: 5),
+            ],
+          ),
+        ),
+        SizedBox(width: 12),
+        _SkeletonBlock(width: 72, height: 14, radius: 7),
+      ],
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  final double? width;
+  final double height;
+  final double radius;
+
+  const _SkeletonBlock({
+    this.width,
+    required this.height,
+    required this.radius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      width: width,
       height: height,
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.bgSurface,
+        borderRadius: BorderRadius.circular(radius),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.teal,
-          strokeWidth: 2,
-        ),
-      ),
+    );
+  }
+}
+
+class _SkeletonPulse extends StatefulWidget {
+  final Widget child;
+  const _SkeletonPulse({required this.child});
+
+  @override
+  State<_SkeletonPulse> createState() => _SkeletonPulseState();
+}
+
+class _SkeletonPulseState extends State<_SkeletonPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _opacity = Tween<double>(begin: 0.45, end: 0.85).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: widget.child,
     );
   }
 }

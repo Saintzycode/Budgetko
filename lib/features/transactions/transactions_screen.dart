@@ -4,6 +4,7 @@ import '../../../../data/repositories/providers.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/database/app_database.dart';
+import '../../core/router.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -31,7 +32,7 @@ class _TransactionsScreenState
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu,
                 color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: () => openDrawer(),
           ),
         ),
         title: Text(

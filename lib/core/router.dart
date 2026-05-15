@@ -12,6 +12,14 @@ import '../features/wallets/wallets_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../core/theme/app_theme.dart';
 
+// ── Global drawer key ──────────────────────────────────────────────────────────
+
+final _drawerKey = GlobalKey<ScaffoldState>();
+
+void openDrawer() {
+  _drawerKey.currentState?.openDrawer();
+}
+
 final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
@@ -64,9 +72,14 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final showQuickAdd = location != '/goals';
+    final showQuickAdd =
+        location != '/goals' &&
+        location != '/recurring' &&
+        location != '/wallets' &&
+        location != '/settings';
 
     return Scaffold(
+      key: _drawerKey,
       backgroundColor: AppColors.bg,
       drawer: _AppDrawer(),
       body: child,
@@ -110,7 +123,6 @@ class _AppDrawer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo
                   Container(
                     width: 52,
                     height: 52,
@@ -125,14 +137,11 @@ class _AppDrawer extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Text(
-                        '₱',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/android/Logo.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
@@ -309,12 +318,12 @@ class _DrawerItem extends StatelessWidget {
             horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isActive
-              ? AppColors.teal.withValues(alpha: 0.15)
+              ? AppColors.teal.withOpacity(0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isActive
-                ? AppColors.teal.withValues(alpha: 0.3)
+                ? AppColors.teal.withOpacity(0.3)
                 : Colors.transparent,
             width: 0.5,
           ),
@@ -351,7 +360,7 @@ class _DrawerItem extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.teal.withValues(alpha: 0.5),
+                      color: AppColors.teal.withOpacity(0.5),
                       blurRadius: 6,
                     ),
                   ],

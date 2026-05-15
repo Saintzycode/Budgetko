@@ -113,14 +113,11 @@ class _SplashScreenState extends State<SplashScreen>
                         width: 1,
                       ),
                     ),
-                    child: const Center(
-                      child: Text(
-                        '₱',
-                        style: TextStyle(
-                          color: AppColors.teal,
-                          fontSize: 56,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/android/Logo.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),

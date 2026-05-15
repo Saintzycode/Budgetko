@@ -5,6 +5,7 @@ import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../core/router.dart';
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -21,7 +22,7 @@ class GoalsScreen extends ConsumerWidget {
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu,
                 color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: () => openDrawer(),
           ),
         ),
         title: const Text(
@@ -135,15 +136,17 @@ class _GoalCard extends ConsumerWidget {
     final remaining = goal.targetAmount - goal.currentAmount;
     final color = AppColors.fromHex(goal.color);
 
-    return GlowContainer(
-      glowColor: color,
-      glowRadius: 12,
-      padding: const EdgeInsets.all(16),
-      color: AppColors.bgCard,
-      borderRadius: BorderRadius.circular(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlowContainer(
+        glowColor: color,
+        glowRadius: 12,
+        padding: const EdgeInsets.all(16),
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             children: [
               Container(
@@ -286,7 +289,8 @@ class _GoalCard extends ConsumerWidget {
               ),
             ],
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

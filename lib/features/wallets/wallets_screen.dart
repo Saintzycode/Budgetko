@@ -5,6 +5,7 @@ import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../core/router.dart';
 
 class WalletsScreen extends ConsumerWidget {
   const WalletsScreen({super.key});
@@ -21,7 +22,7 @@ class WalletsScreen extends ConsumerWidget {
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu,
                 color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: () => openDrawer(),
           ),
         ),
         title: const Text(
@@ -166,14 +167,16 @@ class _WalletCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final color = AppColors.fromHex(wallet.color);
 
-    return GlowContainer(
-      glowColor: color,
-      glowRadius: 15,
-      padding: const EdgeInsets.all(16),
-      color: AppColors.bgCard,
-      borderRadius: BorderRadius.circular(20),
-      child: Column(
-        children: [
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GlowContainer(
+        glowColor: color,
+        glowRadius: 15,
+        padding: const EdgeInsets.all(16),
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          children: [
           Row(
             children: [
               // Wallet icon
@@ -326,7 +329,8 @@ class _WalletCard extends ConsumerWidget {
               ),
             ],
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
