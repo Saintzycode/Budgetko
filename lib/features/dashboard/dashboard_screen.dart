@@ -616,7 +616,17 @@ class _SpendingChart extends ConsumerWidget {
             );
           }
 
-          final sections = spending.entries.map((e) {
+          final sortedEntries = spending.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+
+          final total = sortedEntries
+              .fold(0.0, (sum, entry) => sum + entry.value);
+          final topCategory = cats.firstWhere(
+            (c) => c.id == sortedEntries.first.key,
+            orElse: () => cats.first,
+          );
+
+          final sections = sortedEntries.map((e) {
             final cat = cats.firstWhere(
               (c) => c.id == e.key,
               orElse: () => cats.first,
@@ -625,85 +635,177 @@ class _SpendingChart extends ConsumerWidget {
               value: e.value,
               color: AppColors.fromHex(cat.color),
               title: '',
-              radius: 50,
+              radius: 36,
+              showTitle: false,
             );
           }).toList();
 
-          final total = spending.values
-              .fold(0.0, (sum, v) => sum + v);
-
           return GlowContainer(
             glowColor: AppColors.teal,
-            glowRadius: 15,
+            glowRadius: 18,
             padding: const EdgeInsets.all(16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  height: 160,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      PieChart(
-                        PieChartData(
-                          sections: sections,
-                          centerSpaceRadius: 50,
-                          sectionsSpace: 3,
-                        ),
+                Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: AppColors.teal.withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: const Icon(
+                        Icons.donut_large_outlined,
+                        color: AppColors.teal,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Total',
-                              style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 11)),
-                          Text(
-                            Formatters.currencyCompact(total),
-                            style: const TextStyle(
+                          const Text(
+                            'Category spending',
+                            style: TextStyle(
                               color: AppColors.textPrimary,
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Top: ${topCategory.name}',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                    Text(
+                      Formatters.currencyCompact(total),
+                      style: const TextStyle(
+                        color: AppColors.teal,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 150,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 150,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            PieChart(
+                              PieChartData(
+                                sections: sections,
+                                centerSpaceRadius: 42,
+                                sectionsSpace: 4,
+                                startDegreeOffset: -90,
+                              ),
+                            ),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Total',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                Text(
+                                  Formatters.currencyCompact(total),
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: sortedEntries.take(3).map((e) {
+                            final cat = cats.firstWhere(
+                              (c) => c.id == e.key,
+                              orElse: () => cats.first,
+                            );
+                            final color = AppColors.fromHex(cat.color);
+                            final pct = total == 0
+                                ? 0.0
+                                : (e.value / total)
+                                    .clamp(0.0, 1.0)
+                                    .toDouble();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _SpendingBreakdownRow(
+                                name: cat.name,
+                                amount: e.value,
+                                percent: pct,
+                                color: color,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                if (sortedEntries.length > 3) ...[
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '+${sortedEntries.length - 3} more categories',
+                      style: const TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Container(
+                  height: 1,
+                  color: AppColors.bgSurface,
+                ),
                 const SizedBox(height: 12),
-                // Legend
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: spending.entries.map((e) {
-                    final cat = cats.firstWhere(
-                      (c) => c.id == e.key,
-                      orElse: () => cats.first,
-                    );
-                    final pct = (e.value / total * 100)
-                        .toStringAsFixed(0);
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: AppColors.fromHex(cat.color),
-                            shape: BoxShape.circle,
-                          ),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.insights_outlined,
+                      color: AppColors.textHint,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${topCategory.name} has the largest share this month',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${cat.name} $pct%',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -714,6 +816,81 @@ class _SpendingChart extends ConsumerWidget {
       ),
       loading: () => const _LoadingCard(height: 160),
       error: (e, _) => Text('$e'),
+    );
+  }
+}
+
+class _SpendingBreakdownRow extends StatelessWidget {
+  final String name;
+  final double amount;
+  final double percent;
+  final Color color;
+
+  const _SpendingBreakdownRow({
+    required this.name,
+    required this.amount,
+    required this.percent,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                name,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Text(
+              '${(percent * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: percent,
+            minHeight: 5,
+            backgroundColor: AppColors.bgSurface,
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            Formatters.currencyCompact(amount),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

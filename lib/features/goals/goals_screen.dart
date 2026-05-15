@@ -64,10 +64,12 @@ class GoalsScreen extends ConsumerWidget {
             );
           }
 
-          final active =
-              goals.where((g) => !g.isCompleted).toList();
-          final completed =
-              goals.where((g) => g.isCompleted).toList();
+          final active = goals.where((g) => !g.isCompleted).toList()
+            ..sort((a, b) =>
+                _priorityRank(b.icon).compareTo(_priorityRank(a.icon)));
+          final completed = goals.where((g) => g.isCompleted).toList()
+            ..sort((a, b) =>
+                _priorityRank(b.icon).compareTo(_priorityRank(a.icon)));
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(
@@ -121,6 +123,42 @@ class GoalsScreen extends ConsumerWidget {
       builder: (_) => const _AddGoalSheet(),
     );
   }
+
+  int _priorityRank(String priority) {
+    return switch (priority) {
+      'high' => 3,
+      'medium' || 'savings' => 2,
+      'low' => 1,
+      _ => 2,
+    };
+  }
+}
+
+String _priorityLabel(String priority) {
+  return switch (priority) {
+    'high' => 'High',
+    'medium' || 'savings' => 'Medium',
+    'low' => 'Low',
+    _ => 'Medium',
+  };
+}
+
+Color _priorityColor(String priority) {
+  return switch (priority) {
+    'high' => AppColors.expense,
+    'medium' || 'savings' => AppColors.warning,
+    'low' => AppColors.teal,
+    _ => AppColors.warning,
+  };
+}
+
+IconData _priorityIcon(String priority) {
+  return switch (priority) {
+    'high' => Icons.priority_high_rounded,
+    'medium' || 'savings' => Icons.flag_outlined,
+    'low' => Icons.low_priority_rounded,
+    _ => Icons.flag_outlined,
+  };
 }
 
 // ── Goal card ──────────────────────────────────────────────────────────────────
@@ -135,6 +173,7 @@ class _GoalCard extends ConsumerWidget {
         (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
     final remaining = goal.targetAmount - goal.currentAmount;
     final color = AppColors.fromHex(goal.color);
+    final priorityColor = _priorityColor(goal.icon);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -173,14 +212,48 @@ class _GoalCard extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (goal.deadline != null)
-                      Text(
-                        'By ${Formatters.dateFull(goal.deadline!)}',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () =>
+                              _showPrioritySheet(context, ref),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: priorityColor.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: priorityColor.withOpacity(0.28),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              _priorityLabel(goal.icon),
+                              style: TextStyle(
+                                color: priorityColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (goal.deadline != null) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'By ${Formatters.dateFull(goal.deadline!)}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -325,7 +398,7 @@ class _GoalCard extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               final amount =
-                  double.tryParse(controller.text);
+                  _parseAmount(controller.text);
               if (amount != null && amount > 0) {
                 ref
                     .read(savingsGoalsDaoProvider)
@@ -396,7 +469,7 @@ class _GoalCard extends ConsumerWidget {
                 backgroundColor: AppColors.expense),
             onPressed: () {
               final amount =
-                  double.tryParse(controller.text);
+                  _parseAmount(controller.text);
               if (amount != null && amount > 0) {
                 ref
                     .read(savingsGoalsDaoProvider)
@@ -447,6 +520,102 @@ class _GoalCard extends ConsumerWidget {
       ),
     );
   }
+
+  void _showPrioritySheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.bgSurface,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Set priority',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...['high', 'medium', 'low'].map((priority) {
+              final color = _priorityColor(priority);
+              final isSelected =
+                  _priorityLabel(goal.icon) == _priorityLabel(priority);
+              return GestureDetector(
+                onTap: () {
+                  ref.read(savingsGoalsDaoProvider).updateGoal(
+                        goal.copyWith(icon: priority),
+                      );
+                  Navigator.pop(ctx);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? color.withOpacity(0.15)
+                        : AppColors.bgSurface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color:
+                          isSelected ? color : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _priorityIcon(priority),
+                        color: color,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _priorityLabel(priority),
+                        style: TextStyle(
+                          color: isSelected
+                              ? color
+                              : AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (isSelected) ...[
+                        const Spacer(),
+                        Icon(Icons.check, color: color, size: 18),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  double? _parseAmount(String value) {
+    return double.tryParse(value.replaceAll(',', ''));
+  }
 }
 
 // ── Add goal sheet ─────────────────────────────────────────────────────────────
@@ -466,6 +635,7 @@ class _AddGoalSheetState
   final _amountController = TextEditingController();
   DateTime? _deadline;
   String _selectedColor = '#1D9E75';
+  String _priority = 'medium';
 
   final List<String> _colors = [
     '#1D9E75', '#4B9FFF', '#FF6B6B',
@@ -489,10 +659,11 @@ class _AddGoalSheetState
       ),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Center(
               child: Container(
                 width: 40,
@@ -539,7 +710,7 @@ class _AddGoalSheetState
                 if (v == null || v.isEmpty) {
                   return 'Enter an amount';
                 }
-                if (double.tryParse(v) == null) {
+                if (_parseAmount(v) == null) {
                   return 'Invalid number';
                 }
                 return null;
@@ -580,6 +751,57 @@ class _AddGoalSheetState
                         ? const Icon(Icons.check,
                             color: Colors.white, size: 14)
                         : null,
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+
+            const Text('Priority',
+                style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12)),
+            const SizedBox(height: 8),
+            Row(
+              children: ['low', 'medium', 'high'].map((p) {
+                final isSelected = _priority == p;
+                final color = _priorityColor(p);
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _priority = p),
+                    child: AnimatedContainer(
+                      duration:
+                          const Duration(milliseconds: 150),
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? color.withOpacity(0.18)
+                            : AppColors.bgSurface,
+                        borderRadius:
+                            BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? color
+                              : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _priorityLabel(p),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: isSelected
+                              ? color
+                              : AppColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ),
                   ),
                 );
               }).toList(),
@@ -650,7 +872,8 @@ class _AddGoalSheetState
                 child: const Text('Create goal'),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -661,12 +884,16 @@ class _AddGoalSheetState
     await ref.read(savingsGoalsDaoProvider).insertGoal(
           SavingsGoalsCompanion.insert(
             name: _nameController.text,
-            targetAmount:
-                double.parse(_amountController.text),
+            targetAmount: _parseAmount(_amountController.text)!,
             color: Value(_selectedColor),
+            icon: Value(_priority),
             deadline: Value(_deadline),
           ),
         );
     if (mounted) Navigator.pop(context);
+  }
+
+  double? _parseAmount(String value) {
+    return double.tryParse(value.replaceAll(',', ''));
   }
 }

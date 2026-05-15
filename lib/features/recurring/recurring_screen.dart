@@ -501,26 +501,25 @@ class _AddRecurringSheetState
                       .toList();
                   return DropdownButtonFormField<Category>(
                     value: _selectedCategory,
-                    dropdownColor: AppColors.bgCard,
+                    dropdownColor: AppColors.bgSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    icon: const Icon(Icons.expand_more,
+                        color: AppColors.textSecondary),
+                    isExpanded: true,
                     style: const TextStyle(
                         color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                        labelText: 'Category'),
+                    decoration: _dropdownDecoration(
+                      label: 'Category',
+                      icon: Icons.category_outlined,
+                    ),
+                    selectedItemBuilder: (_) => filtered
+                        .map((c) => _categoryOption(c,
+                            compact: true))
+                        .toList(),
                     items: filtered
                         .map((c) => DropdownMenuItem(
                               value: c,
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 8,
-                                    backgroundColor:
-                                        AppColors.fromHex(
-                                            c.color),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(c.name),
-                                ],
-                              ),
+                              child: _categoryOption(c),
                             ))
                         .toList(),
                     onChanged: (c) => setState(
@@ -542,26 +541,25 @@ class _AddRecurringSheetState
                 data: (wallets) =>
                     DropdownButtonFormField<Wallet>(
                   value: _selectedWallet,
-                  dropdownColor: AppColors.bgCard,
+                  dropdownColor: AppColors.bgSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  icon: const Icon(Icons.expand_more,
+                      color: AppColors.textSecondary),
+                  isExpanded: true,
                   style: const TextStyle(
                       color: AppColors.textPrimary),
-                  decoration: const InputDecoration(
-                      labelText: 'Wallet'),
+                  decoration: _dropdownDecoration(
+                    label: 'Wallet',
+                    icon: Icons.account_balance_wallet_outlined,
+                  ),
+                  selectedItemBuilder: (_) => wallets
+                      .map((w) => _walletOption(w,
+                          compact: true))
+                      .toList(),
                   items: wallets
                       .map((w) => DropdownMenuItem(
                             value: w,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _walletIcon(w.type),
-                                  size: 16,
-                                  color: AppColors.fromHex(
-                                      w.color),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(w.name),
-                              ],
-                            ),
+                            child: _walletOption(w),
                           ))
                       .toList(),
                   onChanged: (w) =>
@@ -716,6 +714,144 @@ class _AddRecurringSheetState
           ),
         );
     if (mounted) Navigator.pop(context);
+  }
+
+  InputDecoration _dropdownDecoration({
+    required String label,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(
+        icon,
+        color: AppColors.textSecondary,
+        size: 18,
+      ),
+      filled: true,
+      fillColor: AppColors.bgSurface,
+      contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.bgSurface,
+          width: 0.5,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.bgSurface,
+          width: 0.5,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.teal,
+          width: 1,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.expense,
+          width: 1,
+        ),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.expense,
+          width: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryOption(Category category, {bool compact = false}) {
+    final color = AppColors.fromHex(category.color);
+    return Row(
+      children: [
+        Container(
+          width: compact ? 26 : 32,
+          height: compact ? 26 : 32,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            _categoryIcon(category.icon),
+            color: color,
+            size: compact ? 14 : 16,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            category.name,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _walletOption(Wallet wallet, {bool compact = false}) {
+    final color = AppColors.fromHex(wallet.color);
+    return Row(
+      children: [
+        Container(
+          width: compact ? 26 : 32,
+          height: compact ? 26 : 32,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            _walletIcon(wallet.type),
+            color: color,
+            size: compact ? 14 : 16,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            wallet.name,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _categoryIcon(String icon) {
+    return switch (icon) {
+      'food' => Icons.restaurant_outlined,
+      'transport' => Icons.directions_car_outlined,
+      'shopping' => Icons.shopping_bag_outlined,
+      'bills' => Icons.receipt_outlined,
+      'health' => Icons.favorite_outline,
+      'entertainment' => Icons.movie_outlined,
+      'savings' => Icons.savings_outlined,
+      'salary' => Icons.work_outline,
+      'freelance' => Icons.laptop_outlined,
+      'business' => Icons.business_center_outlined,
+      'investment' => Icons.trending_up_outlined,
+      'allowance' => Icons.wallet_outlined,
+      'education' => Icons.school_outlined,
+      _ => Icons.category_outlined,
+    };
   }
 
   IconData _walletIcon(String type) {
