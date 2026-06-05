@@ -159,7 +159,7 @@ class _RecurringCard extends ConsumerWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: color.withOpacity(
+              color: color.withValues(alpha: 
                   r.isActive ? 0.15 : 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -254,7 +254,7 @@ class _RecurringCard extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: r.isActive
                             ? AppColors.teal
-                                .withOpacity(0.15)
+                                .withValues(alpha: 0.15)
                             : AppColors.bgSurface,
                         borderRadius:
                             BorderRadius.circular(8),
@@ -500,7 +500,7 @@ class _AddRecurringSheetState
                           : !c.isIncome)
                       .toList();
                   return DropdownButtonFormField<Category>(
-                    value: _selectedCategory,
+                    initialValue: _selectedCategory,
                     dropdownColor: AppColors.bgSurface,
                     borderRadius: BorderRadius.circular(16),
                     icon: const Icon(Icons.expand_more,
@@ -540,7 +540,7 @@ class _AddRecurringSheetState
               walletsAsync.when(
                 data: (wallets) =>
                     DropdownButtonFormField<Wallet>(
-                  value: _selectedWallet,
+                  initialValue: _selectedWallet,
                   dropdownColor: AppColors.bgSurface,
                   borderRadius: BorderRadius.circular(16),
                   icon: const Icon(Icons.expand_more,
@@ -638,7 +638,7 @@ class _AddRecurringSheetState
               // Weekly day picker
               if (_frequency == 'weekly') ...[
                 DropdownButtonFormField<int>(
-                  value: _dayOfWeek,
+                  initialValue: _dayOfWeek,
                   dropdownColor: AppColors.bgCard,
                   style: const TextStyle(
                       color: AppColors.textPrimary),
@@ -659,7 +659,7 @@ class _AddRecurringSheetState
               // Monthly day picker
               if (_frequency == 'monthly') ...[
                 DropdownButtonFormField<int>(
-                  value: _dayOfMonth,
+                  initialValue: _dayOfMonth,
                   dropdownColor: AppColors.bgCard,
                   style: const TextStyle(
                       color: AppColors.textPrimary),
@@ -695,6 +695,7 @@ class _AddRecurringSheetState
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final messenger = ScaffoldMessenger.of(context);
     await ref.read(recurringDaoProvider).insertRecurring(
           RecurringTransactionsCompanion.insert(
             amount: double.parse(_amountController.text),
@@ -706,14 +707,39 @@ class _AddRecurringSheetState
             note: Value(_noteController.text.isEmpty
                 ? null
                 : _noteController.text),
-            dayOfWeek: Value(
-                _frequency == 'weekly' ? _dayOfWeek : null),
-            dayOfMonth: Value(_frequency == 'monthly'
-                ? _dayOfMonth
-                : null),
+            dayOfWeek:
+                Value(_frequency == 'weekly' ? _dayOfWeek : null),
+            dayOfMonth:
+                Value(_frequency == 'monthly' ? _dayOfMonth : null),
           ),
         );
-    if (mounted) Navigator.pop(context);
+    final createdCount =
+        await ref.read(databaseProvider).processDueRecurring();
+    ref
+      ..invalidate(allTransactionsProvider)
+      ..invalidate(transactionsForMonthProvider)
+      ..invalidate(monthlyTotalsProvider)
+      ..invalidate(spendingByCategoryProvider)
+      ..invalidate(last6MonthsProvider)
+      ..invalidate(allRecurringProvider);
+    if (!mounted) return;
+    Navigator.pop(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            createdCount == 0
+                ? 'Recurring transaction saved'
+                : createdCount == 1
+                    ? 'Recurring transaction added'
+                    : '$createdCount recurring transactions added',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
   }
 
   InputDecoration _dropdownDecoration({
@@ -777,7 +803,7 @@ class _AddRecurringSheetState
           width: compact ? 26 : 32,
           height: compact ? 26 : 32,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
@@ -810,7 +836,7 @@ class _AddRecurringSheetState
           width: compact ? 26 : 32,
           height: compact ? 26 : 32,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(

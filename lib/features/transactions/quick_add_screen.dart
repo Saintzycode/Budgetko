@@ -113,9 +113,9 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
                         border: Border.all(
                           color: _type == 'expense'
                               ? AppColors.expense
-                                  .withOpacity(0.4)
+                                  .withValues(alpha: 0.4)
                               : AppColors.income
-                                  .withOpacity(0.4),
+                                  .withValues(alpha: 0.4),
                           width: 0.5,
                         ),
                       ),
@@ -193,7 +193,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
                                       vertical: 6),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? color.withOpacity(0.2)
+                                    ? color.withValues(alpha: 0.2)
                                     : AppColors.bgCard,
                                 borderRadius:
                                     BorderRadius.circular(16),
@@ -296,7 +296,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
                                           vertical: 8),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? color.withOpacity(0.15)
+                                        ? color.withValues(alpha: 0.15)
                                         : AppColors.bgSurface,
                                     borderRadius:
                                         BorderRadius.circular(16),
@@ -316,7 +316,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
                                         height: 36,
                                         decoration: BoxDecoration(
                                           color: color
-                                              .withOpacity(0.15),
+                                              .withValues(alpha: 0.15),
                                           borderRadius:
                                               BorderRadius.circular(
                                                   10),

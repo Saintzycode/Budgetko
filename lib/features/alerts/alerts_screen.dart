@@ -114,7 +114,7 @@ class AlertsScreen extends ConsumerWidget {
                               height: 40,
                               decoration: BoxDecoration(
                                 color:
-                                    color.withOpacity(0.15),
+                                    color.withValues(alpha: 0.15),
                                 borderRadius:
                                     BorderRadius.circular(
                                         12),
@@ -184,7 +184,7 @@ class AlertsScreen extends ConsumerWidget {
                               value: progress,
                               minHeight: 6,
                               backgroundColor: statusColor
-                                  .withOpacity(0.1),
+                                  .withValues(alpha: 0.1),
                               valueColor:
                                   AlwaysStoppedAnimation(
                                       statusColor),
@@ -370,10 +370,10 @@ class _StatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: color.withOpacity(0.3), width: 0.5),
+            color: color.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Text(
         label,

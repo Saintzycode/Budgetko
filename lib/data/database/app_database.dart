@@ -57,6 +57,7 @@ class SavingsGoals extends Table {
       text().withDefault(const Constant('#1D9E75'))();
   TextColumn get icon =>
       text().withDefault(const Constant('savings'))();
+  TextColumn get imagePath => text().nullable()();
   BoolColumn get isCompleted =>
       boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt =>
@@ -192,6 +193,25 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         ])
         .watch()
         .map((rows) => rows
+            .map((row) => TransactionWithDetails(
+                  transaction: row.readTable(transactions),
+                  category: row.readTableOrNull(categories),
+                  wallet: row.readTableOrNull(wallets),
+                ))
+            .toList());
+  }
+
+  Future<List<TransactionWithDetails>> getAllTransactionsWithDetails() {
+    return (select(transactions)
+          ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+        .join([
+          leftOuterJoin(categories,
+              categories.id.equalsExp(transactions.categoryId)),
+          leftOuterJoin(
+              wallets, wallets.id.equalsExp(transactions.walletId)),
+        ])
+        .get()
+        .then((rows) => rows
             .map((row) => TransactionWithDetails(
                   transaction: row.readTable(transactions),
                   category: row.readTableOrNull(categories),
@@ -509,7 +529,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -518,7 +538,164 @@ class AppDatabase extends _$AppDatabase {
           await walletsDao.seedDefaultWallets();
           await categoriesDao.seedDefaultCategories();
         },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(savingsGoals, savingsGoals.imagePath);
+          }
+        },
       );
+
+  Future<int> processDueRecurring({DateTime? now}) async {
+    final runAt = now ?? DateTime.now();
+    final today = _dateOnly(runAt);
+
+    return transaction(() async {
+      final activeRecurring = await recurringDao.getActiveRecurring();
+      var createdCount = 0;
+
+      for (final recurring in activeRecurring) {
+        final dueDates = _dueDatesFor(recurring, today);
+        if (dueDates.isEmpty) continue;
+
+        for (final dueDate in dueDates) {
+          await transactionsDao.insertTransaction(
+            TransactionsCompanion.insert(
+              amount: recurring.amount,
+              categoryId: recurring.categoryId,
+              walletId: recurring.walletId,
+              type: recurring.type,
+              date: _transactionDateFor(dueDate, runAt),
+              note: Value(recurring.note),
+            ),
+          );
+          createdCount++;
+        }
+
+        await (update(recurringTransactions)
+              ..where((r) => r.id.equals(recurring.id)))
+            .write(
+          RecurringTransactionsCompanion(
+            lastRunAt: Value(_endOfDay(dueDates.last)),
+          ),
+        );
+      }
+
+      return createdCount;
+    });
+  }
+
+  List<DateTime> _dueDatesFor(
+    RecurringTransaction recurring,
+    DateTime today,
+  ) {
+    final start = _dateOnly(recurring.startDate);
+    final lastRun = recurring.lastRunAt == null
+        ? null
+        : _dateOnly(recurring.lastRunAt!);
+    final earliest = lastRun == null
+        ? start
+        : _dateOnly(lastRun.add(const Duration(days: 1)));
+
+    if (earliest.isAfter(today)) return const [];
+
+    return switch (recurring.frequency) {
+      'daily' => _dailyDueDates(earliest, today),
+      'weekly' => _weeklyDueDates(
+          earliest,
+          today,
+          recurring.dayOfWeek ?? start.weekday,
+        ),
+      'monthly' => _monthlyDueDates(
+          earliest,
+          today,
+          recurring.dayOfMonth ?? start.day,
+        ),
+      _ => const <DateTime>[],
+    };
+  }
+
+  List<DateTime> _dailyDueDates(DateTime earliest, DateTime today) {
+    final dates = <DateTime>[];
+    var cursor = earliest;
+    while (!cursor.isAfter(today)) {
+      dates.add(cursor);
+      cursor = cursor.add(const Duration(days: 1));
+    }
+    return dates;
+  }
+
+  List<DateTime> _weeklyDueDates(
+    DateTime earliest,
+    DateTime today,
+    int dayOfWeek,
+  ) {
+    final dates = <DateTime>[];
+    var cursor = earliest.add(
+      Duration(days: (dayOfWeek - earliest.weekday) % 7),
+    );
+    while (!cursor.isAfter(today)) {
+      dates.add(cursor);
+      cursor = cursor.add(const Duration(days: 7));
+    }
+    return dates;
+  }
+
+  List<DateTime> _monthlyDueDates(
+    DateTime earliest,
+    DateTime today,
+    int dayOfMonth,
+  ) {
+    final dates = <DateTime>[];
+    var cursor = _scheduledMonthDate(
+      earliest.year,
+      earliest.month,
+      dayOfMonth,
+    );
+    if (cursor.isBefore(earliest)) {
+      cursor = _scheduledMonthDate(
+        earliest.year,
+        earliest.month + 1,
+        dayOfMonth,
+      );
+    }
+
+    while (!cursor.isAfter(today)) {
+      dates.add(cursor);
+      cursor = _scheduledMonthDate(
+        cursor.year,
+        cursor.month + 1,
+        dayOfMonth,
+      );
+    }
+    return dates;
+  }
+
+  DateTime _scheduledMonthDate(int year, int month, int dayOfMonth) {
+    final normalizedMonth = DateTime(year, month);
+    final lastDay =
+        DateTime(normalizedMonth.year, normalizedMonth.month + 1, 0)
+            .day;
+    final scheduledDay = dayOfMonth.clamp(1, lastDay).toInt();
+    return DateTime(
+      normalizedMonth.year,
+      normalizedMonth.month,
+      scheduledDay,
+    );
+  }
+
+  DateTime _transactionDateFor(DateTime dueDate, DateTime runAt) {
+    if (_dateOnly(runAt) == dueDate) return runAt;
+    return DateTime(dueDate.year, dueDate.month, dueDate.day, 12);
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    final local = value.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  DateTime _endOfDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day, 23, 59, 59);
+  }
 }
 
 LazyDatabase _openConnection() {

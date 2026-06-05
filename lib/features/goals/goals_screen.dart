@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -171,15 +175,18 @@ class _GoalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final progress =
         (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
-    final remaining = goal.targetAmount - goal.currentAmount;
+    final percent = (progress * 100).round();
+    final remaining =
+        (goal.targetAmount - goal.currentAmount).clamp(0.0, double.infinity);
     final color = AppColors.fromHex(goal.color);
     final priorityColor = _priorityColor(goal.icon);
+    final isComplete = progress >= 1.0;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GlowContainer(
-        glowColor: color,
-        glowRadius: 12,
+        glowColor: isComplete ? AppColors.warning : color,
+        glowRadius: isComplete ? 28 : 12,
         padding: const EdgeInsets.all(16),
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(20),
@@ -192,7 +199,7 @@ class _GoalCard extends ConsumerWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.savings_outlined,
@@ -222,10 +229,10 @@ class _GoalCard extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: priorityColor.withOpacity(0.14),
+                              color: priorityColor.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: priorityColor.withOpacity(0.28),
+                                color: priorityColor.withValues(alpha: 0.28),
                                 width: 0.5,
                               ),
                             ),
@@ -271,7 +278,7 @@ class _GoalCard extends ConsumerWidget {
                         height: 32,
                         decoration: BoxDecoration(
                           color: AppColors.expense
-                              .withOpacity(0.1),
+                              .withValues(alpha: 0.1),
                           borderRadius:
                               BorderRadius.circular(10),
                         ),
@@ -292,7 +299,7 @@ class _GoalCard extends ConsumerWidget {
                         height: 32,
                         decoration: BoxDecoration(
                           color:
-                              color.withOpacity(0.15),
+                              color.withValues(alpha: 0.15),
                           borderRadius:
                               BorderRadius.circular(10),
                         ),
@@ -330,14 +337,33 @@ class _GoalCard extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // Progress bar
+          _GoalImage(
+            imagePath: goal.imagePath,
+            color: color,
+            height: 150,
+            onTap: () => _pickImage(context, ref),
+          ),
+          const SizedBox(height: 12),
+
+          if (isComplete) ...[
+            _AchievementBanner(color: color),
+            const SizedBox(height: 12),
+          ],
+
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: color.withOpacity(0.15),
-              valueColor: AlwaysStoppedAnimation(color),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return LinearProgressIndicator(
+                  value: value,
+                  minHeight: 8,
+                  backgroundColor: color.withValues(alpha: 0.15),
+                  valueColor: AlwaysStoppedAnimation(color),
+                );
+              },
             ),
           ),
           const SizedBox(height: 10),
@@ -348,13 +374,13 @@ class _GoalCard extends ConsumerWidget {
             children: [
               Text(
                 goal.isCompleted
-                    ? '✅ Goal reached!'
+                    ? 'Goal reached'
                     : '${Formatters.currency(remaining)} to go',
                 style:
                     TextStyle(color: color, fontSize: 12),
               ),
               Text(
-                '${Formatters.currency(goal.currentAmount)} / ${Formatters.currency(goal.targetAmount)}',
+                '$percent% complete',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
@@ -362,10 +388,33 @@ class _GoalCard extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 4),
+          Text(
+            '${Formatters.currency(goal.currentAmount)} saved of ${Formatters.currency(goal.targetAmount)}',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _pickImage(BuildContext context, WidgetRef ref) async {
+    try {
+      final imagePath = await _pickAndStoreGoalImage();
+      if (imagePath == null) return;
+      await ref.read(savingsGoalsDaoProvider).updateGoal(
+            goal.copyWith(imagePath: Value(imagePath)),
+          );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not upload image.')),
+      );
+    }
   }
 
   void _showAddDialog(BuildContext context, WidgetRef ref) {
@@ -571,7 +620,7 @@ class _GoalCard extends ConsumerWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? color.withOpacity(0.15)
+                        ? color.withValues(alpha: 0.15)
                         : AppColors.bgSurface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
@@ -620,6 +669,190 @@ class _GoalCard extends ConsumerWidget {
 
 // ── Add goal sheet ─────────────────────────────────────────────────────────────
 
+class _GoalImage extends StatelessWidget {
+  final String? imagePath;
+  final Color color;
+  final double height;
+  final VoidCallback onTap;
+
+  const _GoalImage({
+    required this.imagePath,
+    required this.color,
+    required this.height,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final path = imagePath;
+    final hasImage = path != null && File(path).existsSync();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: height,
+          width: double.infinity,
+          color: color.withValues(alpha: 0.1),
+          child: hasImage
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(File(path), fit: BoxFit.cover),
+                    Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: _ImageActionChip(color: color, label: 'Change'),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: color,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Upload goal image',
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageActionChip extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _ImageActionChip({
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.photo_camera_outlined, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AchievementBanner extends StatelessWidget {
+  final Color color;
+
+  const _AchievementBanner({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.9, end: 1),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.emoji_events_outlined,
+              color: AppColors.warning,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Achievement unlocked: goal fully funded',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.auto_awesome,
+              color: AppColors.warning,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<String?> _pickAndStoreGoalImage() async {
+  final picked = await ImagePicker().pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 86,
+    maxWidth: 1600,
+  );
+  if (picked == null) return null;
+
+  final directory = await getApplicationDocumentsDirectory();
+  final goalImagesDir = Directory(p.join(directory.path, 'goal_images'));
+  if (!await goalImagesDir.exists()) {
+    await goalImagesDir.create(recursive: true);
+  }
+
+  final extension =
+      p.extension(picked.path).isEmpty ? '.jpg' : p.extension(picked.path);
+  final fileName =
+      'goal_${DateTime.now().microsecondsSinceEpoch}$extension';
+  final savedPath = p.join(goalImagesDir.path, fileName);
+  final savedFile = await File(picked.path).copy(savedPath);
+  return savedFile.path;
+}
+
 class _AddGoalSheet extends ConsumerStatefulWidget {
   const _AddGoalSheet();
 
@@ -634,6 +867,7 @@ class _AddGoalSheetState
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
   DateTime? _deadline;
+  String? _imagePath;
   String _selectedColor = '#1D9E75';
   String _priority = 'medium';
 
@@ -718,6 +952,14 @@ class _AddGoalSheetState
             ),
             const SizedBox(height: 12),
 
+            _GoalImage(
+              imagePath: _imagePath,
+              color: AppColors.fromHex(_selectedColor),
+              height: 132,
+              onTap: _pickImage,
+            ),
+            const SizedBox(height: 12),
+
             // Color picker
             const Text('Color',
                 style: TextStyle(
@@ -777,7 +1019,7 @@ class _AddGoalSheetState
                           vertical: 10),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? color.withOpacity(0.18)
+                            ? color.withValues(alpha: 0.18)
                             : AppColors.bgSurface,
                         borderRadius:
                             BorderRadius.circular(12),
@@ -887,10 +1129,25 @@ class _AddGoalSheetState
             targetAmount: _parseAmount(_amountController.text)!,
             color: Value(_selectedColor),
             icon: Value(_priority),
+            imagePath: Value(_imagePath),
             deadline: Value(_deadline),
           ),
         );
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final imagePath = await _pickAndStoreGoalImage();
+      if (imagePath != null && mounted) {
+        setState(() => _imagePath = imagePath);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not upload image.')),
+      );
+    }
   }
 
   double? _parseAmount(String value) {

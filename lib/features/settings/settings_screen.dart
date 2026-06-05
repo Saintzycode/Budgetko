@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../core/router.dart';
+import '../export/export.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -47,10 +48,10 @@ class SettingsScreen extends ConsumerWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppColors.teal.withOpacity(0.15),
+                    color: AppColors.teal.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.teal.withOpacity(0.3),
+                      color: AppColors.teal.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -90,7 +91,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // ── Budget section ─────────────────────────────────
-          _SectionTitle(title: 'Budget'),
+          const _SectionTitle(title: 'Budget'),
           const SizedBox(height: 8),
 
           _SettingsTile(
@@ -118,26 +119,15 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // ── Data section ───────────────────────────────────
-          _SectionTitle(title: 'Data'),
+          const _SectionTitle(title: 'Data'),
           const SizedBox(height: 8),
 
           _SettingsTile(
             icon: Icons.download_outlined,
             iconColor: AppColors.teal,
-            title: 'Export to CSV',
-            subtitle: 'Download your transactions',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: AppColors.bgCard,
-                  content: Text(
-                    'Export coming soon',
-                    style: TextStyle(
-                        color: AppColors.textPrimary),
-                  ),
-                ),
-              );
-            },
+            title: 'Export to Excel',
+            subtitle: 'Download your transactions as .xls',
+            onTap: () => _exportExcel(context, ref),
           ),
           const SizedBox(height: 8),
 
@@ -152,24 +142,24 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // ── About section ──────────────────────────────────
-          _SectionTitle(title: 'About'),
+          const _SectionTitle(title: 'About'),
           const SizedBox(height: 8),
 
-          GlowContainer(
+          const GlowContainer(
             glowColor: AppColors.bgSurface,
-            padding: const EdgeInsets.all(16),
+            padding:  EdgeInsets.all(16),
             child: Column(
               children: [
                 _InfoRow(
                     label: 'App', value: 'BudgetKo'),
-                const Divider(height: 16),
+                 Divider(height: 16),
                 _InfoRow(
                     label: 'Version', value: '2.0.0'),
-                const Divider(height: 16),
+                 Divider(height: 16),
                 _InfoRow(
                     label: 'Database',
                     value: 'SQLite (drift)'),
-                const Divider(height: 16),
+                 Divider(height: 16),
                 _InfoRow(
                     label: 'Framework',
                     value: 'Flutter'),
@@ -311,6 +301,51 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _exportExcel(
+      BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.bgCard,
+        content: Text(
+          'Exporting transactions...',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+      ),
+    );
+
+    try {
+      final transactions = await ref
+          .read(transactionsDaoProvider)
+          .getAllTransactionsWithDetails();
+      final result =
+          await ExcelExporter().exportTransactions(transactions);
+
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          duration: const Duration(seconds: 6),
+          content: Text(
+            'Exported ${result.rowCount} transactions to ${result.path}',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          content: Text(
+            'Export failed: $e',
+            style: const TextStyle(color: AppColors.expense),
+          ),
+        ),
+      );
+    }
+  }
 }
 
 // ── Reusable widgets ───────────────────────────────────────────────────────────
@@ -363,7 +398,7 @@ class _SettingsTile extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.15),
+                color: iconColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 20),

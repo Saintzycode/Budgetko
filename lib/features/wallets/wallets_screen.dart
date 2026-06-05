@@ -184,7 +184,7 @@ class _WalletCard extends ConsumerWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -218,7 +218,7 @@ class _WalletCard extends ConsumerWidget {
                                     vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.teal
-                                  .withOpacity(0.15),
+                                  .withValues(alpha: 0.15),
                               borderRadius:
                                   BorderRadius.circular(8),
                             ),
@@ -559,7 +559,7 @@ class _AddWalletSheetState
                           vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? color.withOpacity(0.15)
+                            ? color.withValues(alpha: 0.15)
                             : AppColors.bgSurface,
                         borderRadius:
                             BorderRadius.circular(14),

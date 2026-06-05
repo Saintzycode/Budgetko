@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/app_database.dart';
@@ -34,10 +36,54 @@ final recurringDaoProvider = Provider<RecurringDao>((ref) {
 
 // ── Selected month ─────────────────────────────────────────────────────────────
 
-final selectedMonthProvider = StateProvider<DateTime>((ref) {
-  final now = DateTime.now();
-  return DateTime(now.year, now.month);
+final selectedMonthProvider =
+    StateNotifierProvider<SelectedMonthNotifier, DateTime>((ref) {
+  return SelectedMonthNotifier();
 });
+
+class SelectedMonthNotifier extends StateNotifier<DateTime> {
+  Timer? _timer;
+  bool _followsCurrentMonth = true;
+
+  SelectedMonthNotifier() : super(_currentMonth()) {
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _syncCurrentMonth();
+    });
+  }
+
+  void setMonth(DateTime month) {
+    final selected = DateTime(month.year, month.month);
+    state = selected;
+    _followsCurrentMonth = _isSameMonth(selected, _currentMonth());
+  }
+
+  void useCurrentMonth() {
+    _followsCurrentMonth = true;
+    state = _currentMonth();
+  }
+
+  void _syncCurrentMonth() {
+    final current = _currentMonth();
+    if (_followsCurrentMonth && !_isSameMonth(state, current)) {
+      state = current;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  static DateTime _currentMonth() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month);
+  }
+
+  static bool _isSameMonth(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month;
+  }
+}
 
 // ── Selected wallet ────────────────────────────────────────────────────────────
 

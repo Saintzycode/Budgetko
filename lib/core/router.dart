@@ -131,7 +131,7 @@ class _AppDrawer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.teal.withOpacity(0.4),
+                          color: AppColors.teal.withValues(alpha: 0.4),
                           blurRadius: 16,
                           spreadRadius: 0,
                         ),
@@ -318,12 +318,12 @@ class _DrawerItem extends StatelessWidget {
             horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isActive
-              ? AppColors.teal.withOpacity(0.15)
+              ? AppColors.teal.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isActive
-                ? AppColors.teal.withOpacity(0.3)
+                ? AppColors.teal.withValues(alpha: 0.3)
                 : Colors.transparent,
             width: 0.5,
           ),
@@ -360,7 +360,7 @@ class _DrawerItem extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.teal.withOpacity(0.5),
+                      color: AppColors.teal.withValues(alpha: 0.5),
                       blurRadius: 6,
                     ),
                   ],

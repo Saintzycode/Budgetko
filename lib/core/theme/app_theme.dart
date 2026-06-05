@@ -72,11 +72,10 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: AppColors.teal,
         secondary: AppColors.tealLight,
         surface: AppColors.bgCard,
-        background: AppColors.bg,
       ),
       scaffoldBackgroundColor: AppColors.bg,
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
@@ -184,13 +183,13 @@ class GlowContainer extends StatelessWidget {
         borderRadius: borderRadius ?? BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: glowColor.withOpacity(0.15),
+            color: glowColor.withValues(alpha: 0.15),
             blurRadius: glowRadius,
             spreadRadius: 0,
           ),
         ],
         border: Border.all(
-          color: glowColor.withOpacity(0.2),
+          color: glowColor.withValues(alpha: 0.2),
           width: 0.5,
         ),
       ),

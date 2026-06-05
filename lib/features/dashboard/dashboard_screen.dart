@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../core/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.teal.withOpacity(0.4),
+                    color: AppColors.teal.withValues(alpha: 0.4),
                     blurRadius: 12,
                   ),
                 ],
@@ -128,7 +130,15 @@ class DashboardScreen extends ConsumerWidget {
             if (budget > 0) const SizedBox(height: 16),
 
             // ── Spending chart ─────────────────────────────────────
-            const _SectionHeader(title: 'Spending breakdown'),
+            _SectionHeader(
+              title: 'Spending breakdown',
+              trailing: TextButton(
+                onPressed: () => context.go('/alerts'),
+                child: const Text('Limits',
+                    style: TextStyle(
+                        color: AppColors.teal, fontSize: 13)),
+              ),
+            ),
             const SizedBox(height: 8),
             const _SpendingChart(),
             const SizedBox(height: 16),
@@ -146,7 +156,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             goalsAsync.when(
               data: (goals) => goals.isEmpty
-                  ? _EmptyState(
+                  ? const _EmptyState(
                       icon: Icons.savings_outlined,
                       message: 'No savings goals yet',
                     )
@@ -174,7 +184,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             transactionsAsync.when(
               data: (txns) => txns.isEmpty
-                  ? _EmptyState(
+                  ? const _EmptyState(
                       icon: Icons.receipt_long_outlined,
                       message: 'No transactions this month',
                     )
@@ -212,8 +222,7 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
     if (picked != null) {
-      ref.read(selectedMonthProvider.notifier).state =
-          DateTime(picked.year, picked.month);
+      ref.read(selectedMonthProvider.notifier).setMonth(picked);
     }
   }
 }
@@ -283,7 +292,7 @@ class _WalletChips extends StatelessWidget {
                     horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? color.withOpacity(0.2)
+                      ? color.withValues(alpha: 0.2)
                       : AppColors.bgCard,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
@@ -458,10 +467,10 @@ class _MiniStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
         border:
-            Border.all(color: color.withOpacity(0.2), width: 0.5),
+            Border.all(color: color.withValues(alpha: 0.2), width: 0.5),
       ),
       child: Row(
         children: [
@@ -469,7 +478,7 @@ class _MiniStat extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 14),
@@ -545,10 +554,10 @@ class _BudgetCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: color.withOpacity(0.3), width: 0.5),
+                      color: color.withValues(alpha: 0.3), width: 0.5),
                 ),
                 child: Text(
                   isOver
@@ -570,7 +579,7 @@ class _BudgetCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withValues(alpha: 0.1),
               valueColor: AlwaysStoppedAnimation(color),
             ),
           ),
@@ -610,7 +619,7 @@ class _SpendingChart extends ConsumerWidget {
       data: (spending) => categoriesAsync.when(
         data: (cats) {
           if (spending.isEmpty) {
-            return _EmptyState(
+            return const _EmptyState(
               icon: Icons.pie_chart_outline,
               message: 'No spending data yet',
             );
@@ -619,18 +628,17 @@ class _SpendingChart extends ConsumerWidget {
           final sortedEntries = spending.entries.toList()
             ..sort((a, b) => b.value.compareTo(a.value));
 
+          Category categoryFor(int id) => cats.firstWhere(
+                (c) => c.id == id,
+                orElse: () => cats.first,
+              );
+
           final total = sortedEntries
               .fold(0.0, (sum, entry) => sum + entry.value);
-          final topCategory = cats.firstWhere(
-            (c) => c.id == sortedEntries.first.key,
-            orElse: () => cats.first,
-          );
+          final topCategory = categoryFor(sortedEntries.first.key);
 
           final sections = sortedEntries.map((e) {
-            final cat = cats.firstWhere(
-              (c) => c.id == e.key,
-              orElse: () => cats.first,
-            );
+            final cat = categoryFor(e.key);
             return PieChartSectionData(
               value: e.value,
               color: AppColors.fromHex(cat.color),
@@ -639,6 +647,23 @@ class _SpendingChart extends ConsumerWidget {
               showTitle: false,
             );
           }).toList();
+          final visibleEntries = sortedEntries.take(3).toList();
+          MapEntry<int, double>? limitAlertEntry;
+          var limitAlertProgress = 0.0;
+          for (final entry in sortedEntries) {
+            final limit = categoryFor(entry.key).monthlyLimit;
+            if (limit == null || limit <= 0) continue;
+            final progress = entry.value / limit;
+            if (progress >= 0.8 && progress > limitAlertProgress) {
+              limitAlertEntry = entry;
+              limitAlertProgress = progress;
+            }
+          }
+          final insightText = limitAlertEntry == null
+              ? '${topCategory.name} has the largest share this month'
+              : limitAlertProgress > 1
+                  ? '${categoryFor(limitAlertEntry.key).name} is over its monthly limit'
+                  : '${categoryFor(limitAlertEntry.key).name} is near its monthly limit';
 
           return GlowContainer(
             glowColor: AppColors.teal,
@@ -653,7 +678,7 @@ class _SpendingChart extends ConsumerWidget {
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: AppColors.teal.withOpacity(0.14),
+                        color: AppColors.teal.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
@@ -697,12 +722,14 @@ class _SpendingChart extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  height: 150,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 150),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       SizedBox(
                         width: 150,
+                        height: 150,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -740,12 +767,10 @@ class _SpendingChart extends ConsumerWidget {
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: sortedEntries.take(3).map((e) {
-                            final cat = cats.firstWhere(
-                              (c) => c.id == e.key,
-                              orElse: () => cats.first,
-                            );
+                          children: visibleEntries.map((e) {
+                            final cat = categoryFor(e.key);
                             final color = AppColors.fromHex(cat.color);
                             final pct = total == 0
                                 ? 0.0
@@ -753,12 +778,13 @@ class _SpendingChart extends ConsumerWidget {
                                     .clamp(0.0, 1.0)
                                     .toDouble();
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 4),
                               child: _SpendingBreakdownRow(
                                 name: cat.name,
                                 amount: e.value,
                                 percent: pct,
                                 color: color,
+                                limit: cat.monthlyLimit,
                               ),
                             );
                           }).toList(),
@@ -797,7 +823,7 @@ class _SpendingChart extends ConsumerWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '${topCategory.name} has the largest share this month',
+                        insightText,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textSecondary,
@@ -825,17 +851,36 @@ class _SpendingBreakdownRow extends StatelessWidget {
   final double amount;
   final double percent;
   final Color color;
+  final double? limit;
 
   const _SpendingBreakdownRow({
     required this.name,
     required this.amount,
     required this.percent,
     required this.color,
+    this.limit,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasLimit = limit != null && limit! > 0;
+    final limitProgress =
+        hasLimit ? (amount / limit!).clamp(0.0, 1.0).toDouble() : null;
+    final isOverLimit = hasLimit && amount > limit!;
+    final isNearLimit =
+        hasLimit && !isOverLimit && limitProgress! >= 0.8;
+    final statusColor = isOverLimit
+        ? AppColors.expense
+        : isNearLimit
+            ? AppColors.warning
+            : color;
+    final amountLabel = hasLimit
+        ? '${Formatters.currencyCompact(amount)} / ${Formatters.currencyCompact(limit!)}'
+        : Formatters.currencyCompact(amount);
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -860,35 +905,42 @@ class _SpendingBreakdownRow extends StatelessWidget {
               ),
             ),
             Text(
-              '${(percent * 100).toStringAsFixed(0)}%',
-              style: TextStyle(
-                color: color,
+              amountLabel,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 11,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
         const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: percent,
-            minHeight: 5,
-            backgroundColor: AppColors.bgSurface,
-            valueColor: AlwaysStoppedAnimation(color),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            Formatters.currencyCompact(amount),
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: limitProgress ?? percent,
+                  minHeight: 5,
+                  backgroundColor: AppColors.bgSurface,
+                  valueColor: AlwaysStoppedAnimation(statusColor),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Text(
+              isOverLimit
+                  ? 'Over'
+                  : isNearLimit
+                      ? '${(limitProgress * 100).toStringAsFixed(0)}%'
+                      : '${(percent * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -905,7 +957,13 @@ class _GoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress =
         (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
+    final percent = (progress * 100).round();
+    final remaining =
+        (goal.targetAmount - goal.currentAmount).clamp(0.0, double.infinity);
     final color = AppColors.fromHex(goal.color);
+    final imagePath = goal.imagePath;
+    final hasImage =
+        imagePath != null && File(imagePath).existsSync();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -919,6 +977,18 @@ class _GoalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasImage) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                File(imagePath),
+                height: 110,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -941,14 +1011,26 @@ class _GoalCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
-              backgroundColor: color.withOpacity(0.15),
+              backgroundColor: color.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation(color),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '${Formatters.percent(progress * 100)} complete',
-            style: TextStyle(color: color, fontSize: 11),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$percent% complete',
+                style: TextStyle(color: color, fontSize: 11),
+              ),
+              Text(
+                '${Formatters.currency(remaining)} to go',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -986,7 +1068,7 @@ class _TransactionTile extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -1128,18 +1210,18 @@ class _LoadingCard extends StatelessWidget {
         ),
         child: height <= 100
             ? const _SkeletonTile()
-            : Column(
+            : const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SkeletonBlock(
+                  _SkeletonBlock(
                       width: 96, height: 12, radius: 6),
-                  const SizedBox(height: 10),
-                  const _SkeletonBlock(
+                  SizedBox(height: 10),
+                  _SkeletonBlock(
                       width: 190, height: 26, radius: 8),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   Expanded(
                     child: Row(
-                      children: const [
+                      children: [
                         Expanded(
                           child: _SkeletonBlock(
                               height: double.infinity,
@@ -1166,8 +1248,8 @@ class _SkeletonTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: const [
+    return const Row(
+      children: [
         _SkeletonBlock(width: 42, height: 42, radius: 12),
         SizedBox(width: 12),
         Expanded(

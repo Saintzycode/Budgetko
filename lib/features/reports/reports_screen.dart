@@ -198,42 +198,87 @@ class _BarChart extends StatelessWidget {
   final List<MonthlyTotals> months;
   const _BarChart({required this.months});
 
+  LineChartBarData _lineData({
+    required Color color,
+    required List<double> values,
+  }) {
+    return LineChartBarData(
+      spots: List.generate(
+        values.length,
+        (index) => FlSpot(index.toDouble(), values[index]),
+      ),
+      isCurved: true,
+      color: color,
+      barWidth: 3,
+      isStrokeCapRound: true,
+      dotData: FlDotData(
+        show: true,
+        getDotPainter: (spot, percent, barData, index) =>
+            FlDotCirclePainter(
+          radius: 3,
+          color: color,
+          strokeWidth: 2,
+          strokeColor: AppColors.bgCard,
+        ),
+      ),
+      belowBarData: BarAreaData(
+        show: true,
+        color: color.withValues(alpha: 0.08),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    if (months.isEmpty) {
+      return const GlowContainer(
+        glowColor: AppColors.bgSurface,
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            'No overview data yet',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    final maxAmount = months.fold(0.0, (max, month) {
+      final monthMax =
+          month.income > month.expense ? month.income : month.expense;
+      return monthMax > max ? monthMax : max;
+    });
+    final chartMaxY = maxAmount <= 0 ? 1.0 : maxAmount * 1.2;
 
     return GlowContainer(
       glowColor: AppColors.teal,
       glowRadius: 15,
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
       child: Column(
         children: [
           SizedBox(
-            height: 180,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: months.fold(
-                      0.0,
-                      (max, m) => m.income > max
-                          ? m.income
-                          : max,
-                    ) *
-                    1.2,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipItem: (group, groupIndex,
-                        rod, rodIndex) {
-                      return BarTooltipItem(
-                        Formatters.currencyCompact(
-                            rod.toY),
-                        const TextStyle(
-                          color: AppColors.textPrimary,
+            height: 200,
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: chartMaxY,
+                minX: 0,
+                maxX: (months.length - 1).toDouble(),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: AppColors.bgCard,
+                    getTooltipItems: (spots) => spots.map((spot) {
+                      final color = spot.bar.color ?? AppColors.teal;
+                      return LineTooltipItem(
+                        Formatters.currencyCompact(spot.y),
+                        TextStyle(
+                          color: color,
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       );
-                    },
+                    }).toList(),
                   ),
                 ),
                 titlesData: FlTitlesData(
@@ -241,9 +286,15 @@ class _BarChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: 1,
+                      reservedSize: 30,
                       getTitlesWidget: (value, meta) {
                         final monthIndex =
                             value.toInt();
+                        if (monthIndex < 0 ||
+                            monthIndex >= months.length) {
+                          return const SizedBox.shrink();
+                        }
                         final date = DateTime(
                           now.year,
                           now.month - (5 - monthIndex),
@@ -287,34 +338,20 @@ class _BarChart extends StatelessWidget {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                barGroups: List.generate(
-                  months.length,
-                  (i) => BarChartGroupData(
-                    x: i,
-                    barRods: [
-                      BarChartRodData(
-                        toY: months[i].income,
-                        color: AppColors.income
-                            .withOpacity(0.8),
-                        width: 10,
-                        borderRadius:
-                            const BorderRadius.vertical(
-                          top: Radius.circular(4),
-                        ),
-                      ),
-                      BarChartRodData(
-                        toY: months[i].expense,
-                        color: AppColors.expense
-                            .withOpacity(0.8),
-                        width: 10,
-                        borderRadius:
-                            const BorderRadius.vertical(
-                          top: Radius.circular(4),
-                        ),
-                      ),
+                lineBarsData: [
+                  _lineData(
+                    color: AppColors.income,
+                    values: [
+                      for (final month in months) month.income,
                     ],
                   ),
-                ),
+                  _lineData(
+                    color: AppColors.expense,
+                    values: [
+                      for (final month in months) month.expense,
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -467,7 +504,7 @@ class _CategoryBreakdown extends StatelessWidget {
                     value: pct,
                     minHeight: 4,
                     backgroundColor:
-                        color.withOpacity(0.1),
+                        color.withValues(alpha: 0.1),
                     valueColor:
                         AlwaysStoppedAnimation(color),
                   ),

@@ -277,8 +277,7 @@ class _TransactionsScreenState
       ),
     );
     if (picked != null) {
-      ref.read(selectedMonthProvider.notifier).state =
-          DateTime(picked.year, picked.month);
+      ref.read(selectedMonthProvider.notifier).setMonth(picked);
     }
   }
 }
