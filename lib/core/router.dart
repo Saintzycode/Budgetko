@@ -272,7 +272,7 @@ class _AppDrawer extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'BudgetKo v2.0',
+                'BudgetKo v2.1.0',
                 style: TextStyle(
                   color: AppColors.textHint,
                   fontSize: 12,

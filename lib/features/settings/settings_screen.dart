@@ -154,7 +154,7 @@ class SettingsScreen extends ConsumerWidget {
                     label: 'App', value: 'BudgetKo'),
                  Divider(height: 16),
                 _InfoRow(
-                    label: 'Version', value: '2.0.0'),
+                    label: 'Version', value: '2.1.0'),
                  Divider(height: 16),
                 _InfoRow(
                     label: 'Database',
