@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../core/theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -171,14 +172,11 @@ class _SplashScreenState extends State<SplashScreen>
               animation: _taglineController,
               builder: (context, child) => FadeTransition(
                 opacity: _taglineOpacity,
-                child: SizedBox(
+                child: const SizedBox(
                   width: 40,
-                  child: LinearProgressIndicator(
-                    backgroundColor:
-                        AppColors.teal.withValues(alpha: 0.2),
-                    valueColor: const AlwaysStoppedAnimation(
-                        AppColors.teal),
-                    minHeight: 2,
+                  child: SpinKitRipple(
+                    color: AppColors.teal,
+                    size: 24,
                   ),
                 ),
               ),

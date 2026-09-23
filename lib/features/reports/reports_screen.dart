@@ -2,6 +2,7 @@ import 'package:budgetko/data/database/app_database.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
@@ -533,9 +534,9 @@ class _LoadingCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: const Center(
-        child: CircularProgressIndicator(
+        child: SpinKitRipple(
           color: AppColors.teal,
-          strokeWidth: 2,
+          size: 30,
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -133,8 +134,8 @@ class WalletsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(
-          child: CircularProgressIndicator(
-              color: AppColors.teal),
+          child: SpinKitRipple(
+              color: AppColors.teal, size: 42),
         ),
         error: (e, _) =>
             Center(child: Text('Error: $e')),

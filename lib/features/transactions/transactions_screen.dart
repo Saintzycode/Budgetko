@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/category_icons.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/database/app_database.dart';
+import '../../../../core/widgets/month_picker.dart';
+import 'transaction_sheet.dart';
 import '../../core/router.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
@@ -16,13 +20,20 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 
 class _TransactionsScreenState
     extends ConsumerState<TransactionsScreen> {
-  String _search = '';
-  String _filter = 'all';
-
   @override
   Widget build(BuildContext context) {
-    final txnsAsync = ref.watch(transactionsForMonthProvider);
+    final txnsAsync = ref.watch(filteredTransactionsProvider);
     final month = ref.watch(selectedMonthProvider);
+    final filter = ref.watch(transactionFilterProvider);
+    final categoryId = ref.watch(transactionCategoryProvider);
+    final catsAsync = ref.watch(categoriesProvider);
+    Category? activeCategory;
+    for (final c in catsAsync.valueOrNull ?? const <Category>[]) {
+      if (c.id == categoryId) {
+        activeCategory = c;
+        break;
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -62,30 +73,92 @@ class _TransactionsScreenState
               children: [
                 _FilterChip(
                   label: 'All',
-                  isSelected: _filter == 'all',
+                  isSelected: filter == 'all',
                   onTap: () =>
-                      setState(() => _filter = 'all'),
+                      ref.read(transactionFilterProvider.notifier).state = 'all',
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
                   label: 'Income',
-                  isSelected: _filter == 'income',
+                  isSelected: filter == 'income',
                   color: AppColors.income,
                   onTap: () =>
-                      setState(() => _filter = 'income'),
+                      ref.read(transactionFilterProvider.notifier).state = 'income',
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
                   label: 'Expense',
-                  isSelected: _filter == 'expense',
+                  isSelected: filter == 'expense',
                   color: AppColors.expense,
                   onTap: () =>
-                      setState(() => _filter = 'expense'),
+                      ref.read(transactionFilterProvider.notifier).state = 'expense',
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
+
+          // ── Active category filter ────────────────────────────
+          if (activeCategory != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.fromHex(activeCategory.color)
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.fromHex(
+                                activeCategory.color)
+                            .withValues(alpha: 0.5),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          categoryIconData(
+                              activeCategory.icon),
+                          size: 13,
+                          color: AppColors.fromHex(
+                              activeCategory.color),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          activeCategory.name,
+                          style: TextStyle(
+                            color: AppColors.fromHex(
+                                activeCategory.color),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => ref
+                        .read(
+                            transactionCategoryProvider.notifier)
+                        .state = null,
+                    icon: const Icon(Icons.close,
+                        size: 14,
+                        color: AppColors.textSecondary),
+                    label: const Text('Clear',
+                        style: TextStyle(
+                            color:
+                                AppColors.textSecondary,
+                            fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
 
           // ── Search bar ─────────────────────────────────────────
           Padding(
@@ -121,8 +194,11 @@ class _TransactionsScreenState
                       color: AppColors.teal, width: 1),
                 ),
               ),
-              onChanged: (v) =>
-                  setState(() => _search = v.toLowerCase()),
+              onChanged: (v) {
+                  final sanitized = v.toLowerCase().replaceAll(
+                      RegExp(r'[^a-z0-9\s]'), '');
+                  ref.read(transactionSearchProvider.notifier).state = sanitized;
+                },
             ),
           ),
 
@@ -130,25 +206,7 @@ class _TransactionsScreenState
           Expanded(
             child: txnsAsync.when(
               data: (txns) {
-                final filtered = txns.where((t) {
-                  if (_filter != 'all' &&
-                      t.transaction.type != _filter) {
-                    return false;
-                  }
-                  if (_search.isNotEmpty) {
-                    final note = (t.transaction.note ?? '')
-                        .toLowerCase();
-                    final cat =
-                        (t.category?.name ?? '').toLowerCase();
-                    if (!note.contains(_search) &&
-                        !cat.contains(_search)) {
-                      return false;
-                    }
-                  }
-                  return true;
-                }).toList();
-
-                if (filtered.isEmpty) {
+                if (txns.isEmpty) {
                   return const Center(
                     child: Column(
                       mainAxisAlignment:
@@ -173,7 +231,7 @@ class _TransactionsScreenState
                 // Group by date
                 final grouped = <String,
                     List<TransactionWithDetails>>{};
-                for (final t in filtered) {
+                for (final t in txns) {
                   final key = Formatters.dateShort(
                       t.transaction.date);
                   grouped
@@ -201,44 +259,35 @@ class _TransactionsScreenState
                     }
 
                     return Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                date,
-                                style: const TextStyle(
-                                  color:
-                                      AppColors.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              Text(
-                                dayTotal >= 0
-                                    ? '+${Formatters.currencyCompact(dayTotal)}'
-                                    : Formatters.currencyCompact(
-                                        dayTotal.abs()),
-                                style: TextStyle(
-                                  color: dayTotal >= 0
-                                      ? AppColors.income
-                                      : AppColors.expense,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            date,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                        ...items.map(
-                          (t) => _TransactionCard(item: t),
+                        ...items.map((t) => _TransactionCard(item: t)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              'Daily: ${Formatters.currency(dayTotal)}',
+                              style: TextStyle(
+                                color: dayTotal >= 0
+                                    ? AppColors.income
+                                    : AppColors.expense,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     );
@@ -246,11 +295,10 @@ class _TransactionsScreenState
                 );
               },
               loading: () => const Center(
-                child: CircularProgressIndicator(
-                    color: AppColors.teal),
+                child: SpinKitRipple(
+                    color: AppColors.teal, size: 42),
               ),
-              error: (e, _) =>
-                  Center(child: Text('Error: $e')),
+              error: (e, _) => Center(child: Text('Error: $e')),
             ),
           ),
         ],
@@ -260,41 +308,25 @@ class _TransactionsScreenState
 
   Future<void> _pickMonth(
       BuildContext context, WidgetRef ref, DateTime current) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDatePickerMode: DatePickerMode.year,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.teal,
-            surface: AppColors.bgCard,
-          ),
-        ),
-        child: child!,
-      ),
-    );
+    final picked =
+        await showMonthPicker(context, initial: current);
     if (picked != null) {
       ref.read(selectedMonthProvider.notifier).setMonth(picked);
     }
   }
 }
 
-// ── Filter chip ────────────────────────────────────────────────────────────────
-
 class _FilterChip extends StatelessWidget {
   final String label;
   final bool isSelected;
-  final Color color;
   final VoidCallback onTap;
+  final Color? color;
 
   const _FilterChip({
     required this.label,
     required this.isSelected,
-    this.color = AppColors.teal,
     required this.onTap,
+    this.color,
   });
 
   @override
@@ -307,12 +339,12 @@ class _FilterChip extends StatelessWidget {
             horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withValues(alpha: 0.15)
+              ? color?.withValues(alpha: 0.15)
               : AppColors.bgCard,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? color
+                ? (color ?? AppColors.teal)
                 : AppColors.bgSurface,
             width: isSelected ? 1 : 0.5,
           ),
@@ -321,7 +353,7 @@ class _FilterChip extends StatelessWidget {
           label,
           style: TextStyle(
             color:
-                isSelected ? color : AppColors.textSecondary,
+                isSelected ? (color ?? AppColors.teal) : AppColors.textSecondary,
             fontSize: 13,
             fontWeight: isSelected
                 ? FontWeight.w600
@@ -400,6 +432,7 @@ class _TransactionCard extends ConsumerWidget {
         ref
             .read(transactionsDaoProvider)
             .deleteTransaction(t.id);
+        invalidateTransactionAggregates(ref);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppColors.bgCard,
@@ -409,7 +442,9 @@ class _TransactionCard extends ConsumerWidget {
           ),
         );
       },
-      child: Container(
+      child: GestureDetector(
+        onTap: () => showTransactionSheet(context, item),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -514,6 +549,7 @@ class _TransactionCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -106,8 +107,8 @@ class GoalsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(
-            child: CircularProgressIndicator(
-                color: AppColors.teal)),
+            child: SpinKitRipple(
+                color: AppColors.teal, size: 42)),
         error: (e, _) =>
             Center(child: Text('Error: $e')),
       ),
@@ -662,8 +663,12 @@ class _GoalCard extends ConsumerWidget {
     );
   }
 
-  double? _parseAmount(String value) {
-    return double.tryParse(value.replaceAll(',', ''));
+double? _parseAmount(String value) {
+    final cleaned = value.replaceAll(',', '').trim();
+    if (cleaned.isEmpty) return null;
+    final parsed = double.tryParse(cleaned);
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
   }
 }
 
@@ -1147,10 +1152,14 @@ class _AddGoalSheetState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not upload image.')),
       );
-    }
+}
   }
 
   double? _parseAmount(String value) {
-    return double.tryParse(value.replaceAll(',', ''));
+    final cleaned = value.replaceAll(',', '').trim();
+    if (cleaned.isEmpty) return null;
+    final parsed = double.tryParse(cleaned);
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
   }
 }

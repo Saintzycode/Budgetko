@@ -1,6 +1,8 @@
 import '../../core/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
@@ -10,8 +12,7 @@ class AlertsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final spendingAsync = ref.watch(spendingByCategoryProvider);
+    final statusesAsync = ref.watch(categoryBudgetStatusProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -32,13 +33,18 @@ class AlertsScreen extends ConsumerWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Manage categories',
+            onPressed: () => context.go('/categories'),
+            icon: const Icon(Icons.category_outlined,
+                color: AppColors.teal),
+          ),
+        ],
       ),
-      body: categoriesAsync.when(
-        data: (categories) {
-          final expenseCats =
-              categories.where((c) => !c.isIncome).toList();
-          return spendingAsync.when(
-            data: (spending) => ListView(
+      body: statusesAsync.when(
+        data: (statuses) {
+          return ListView(
               padding: const EdgeInsets.fromLTRB(
                   16, 16, 16, 120),
               children: [
@@ -77,28 +83,22 @@ class AlertsScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
 
                 // ── Category cards ───────────────────────
-                ...expenseCats.map((cat) {
-                  final spent = spending[cat.id] ?? 0.0;
-                  final limit = cat.monthlyLimit;
-                  final progress = limit != null && limit > 0
-                      ? (spent / limit).clamp(0.0, 1.0)
-                      : null;
-                  final isOver =
-                      limit != null && spent > limit;
-                  final isWarning = progress != null &&
-                      progress >= 0.8 &&
-                      !isOver;
+                ...statuses.map((status) {
+                  final cat = status.category;
+                  final spent = status.spent;
+                  final hasLimit = status.baseLimit > 0;
+                  final limit = status.effectiveLimit;
+                  final progress =
+                      hasLimit ? status.progress : null;
+                  final isOver = status.isOver;
+                  final isWarning = status.isNear;
                   final color = AppColors.fromHex(cat.color);
-                  final statusColor = isOver
-                      ? AppColors.expense
-                      : isWarning
-                          ? AppColors.warning
-                          : AppColors.teal;
+                  final statusColor = status.statusColor;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: GlowContainer(
-                      glowColor: limit != null
+                      glowColor: hasLimit
                           ? statusColor
                           : AppColors.bgSurface,
                       glowRadius: 8,
@@ -175,7 +175,7 @@ class AlertsScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        if (limit != null) ...[
+                        if (hasLimit) ...[
                           const SizedBox(height: 12),
                           ClipRRect(
                             borderRadius:
@@ -214,6 +214,24 @@ class AlertsScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
+                          if (status.hasRollover) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                    Icons.autorenew,
+                                    size: 11,
+                                    color: AppColors.teal),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Includes ${Formatters.currency(status.rolledOver)} rolled over',
+                                  style: const TextStyle(
+                                      color: AppColors.teal,
+                                      fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ],
                         ] else ...[
                           const SizedBox(height: 8),
                           Row(
@@ -255,17 +273,11 @@ class AlertsScreen extends ConsumerWidget {
                   );
                 }),
               ],
-            ),
-            loading: () => const Center(
-                child: CircularProgressIndicator(
-                    color: AppColors.teal)),
-            error: (e, _) =>
-                Center(child: Text('$e')),
-          );
+            );
         },
         loading: () => const Center(
-            child: CircularProgressIndicator(
-                color: AppColors.teal)),
+            child: SpinKitRipple(
+                color: AppColors.teal, size: 42)),
         error: (e, _) =>
             Center(child: Text('$e')),
       ),

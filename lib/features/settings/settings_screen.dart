@@ -12,6 +12,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final income = ref.watch(monthlyIncomeProvider);
     final budget = ref.watch(monthlyBudgetProvider);
+    final notif = ref.watch(notificationSettingsProvider);
+    final carryover = ref.watch(carryoverEnabledProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -116,6 +118,114 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () =>
                 _showBudgetDialog(context, ref, budget),
           ),
+          const SizedBox(height: 8),
+          _SettingsSwitchTile(
+            icon: Icons.autorenew,
+            iconColor: AppColors.teal,
+            title: 'Roll over unspent budget',
+            subtitle: carryover
+                ? 'Unspent category limits carry into next month'
+                : 'Each month starts fresh at the set limit',
+            value: carryover,
+            onChanged: (v) => ref
+                .read(carryoverEnabledProvider.notifier)
+                .setEnabled(v),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Notifications section ──────────────────────────
+          const _SectionTitle(title: 'Notifications'),
+          const SizedBox(height: 8),
+
+          _SettingsSwitchTile(
+            icon: Icons.notifications_outlined,
+            iconColor: AppColors.warning,
+            title: 'Notifications',
+            subtitle: notif.enabled ? 'On' : 'Off',
+            value: notif.enabled,
+            onChanged: (v) => ref
+                .read(notificationSettingsProvider.notifier)
+                .setEnabled(v),
+          ),
+          if (notif.enabled) ...[
+            const SizedBox(height: 8),
+            _SettingsSwitchTile(
+              icon: Icons.warning_amber_outlined,
+              iconColor: AppColors.expense,
+              title: 'Budget alerts',
+              subtitle:
+                  'Warn at 80% and 100% of limits',
+              value: notif.overspend,
+              onChanged: (v) => ref
+                  .read(
+                      notificationSettingsProvider.notifier)
+                  .setOverspend(v),
+            ),
+            const SizedBox(height: 8),
+            _SettingsSwitchTile(
+              icon: Icons.alarm_outlined,
+              iconColor: AppColors.teal,
+              title: 'Daily reminder',
+              subtitle: notif.daily
+                  ? 'Every day at ${notif.dailyLabel}'
+                  : 'Off',
+              value: notif.daily,
+              onChanged: (v) => ref
+                  .read(
+                      notificationSettingsProvider.notifier)
+                  .setDaily(v),
+            ),
+            if (notif.daily) ...[
+              const SizedBox(height: 8),
+              _SettingsTile(
+                icon: Icons.schedule_outlined,
+                iconColor: AppColors.teal,
+                title: 'Reminder time',
+                subtitle: notif.dailyLabel,
+                onTap: () => _showReminderTimePicker(
+                    context, ref, notif),
+              ),
+            ],
+            const SizedBox(height: 8),
+            _SettingsSwitchTile(
+              icon: Icons.repeat_outlined,
+              iconColor: AppColors.savings,
+              title: 'Recurring updates',
+              subtitle:
+                  'Notify when scheduled items are added',
+              value: notif.recurring,
+              onChanged: (v) => ref
+                  .read(
+                      notificationSettingsProvider.notifier)
+                  .setRecurring(v),
+            ),
+            const SizedBox(height: 8),
+            _SettingsSwitchTile(
+              icon: Icons.flag_outlined,
+              iconColor: AppColors.income,
+              title: 'Goal deadlines',
+              subtitle:
+                  'Remind when a goal is due soon',
+              value: notif.goals,
+              onChanged: (v) => ref
+                  .read(
+                      notificationSettingsProvider.notifier)
+                  .setGoals(v),
+            ),
+            const SizedBox(height: 8),
+            _SettingsSwitchTile(
+              icon: Icons.bolt_outlined,
+              iconColor: AppColors.teal,
+              title: 'Quick-add confirmations',
+              subtitle:
+                  'Notify each time a transaction is saved',
+              value: notif.quickAdd,
+              onChanged: (v) => ref
+                  .read(
+                      notificationSettingsProvider.notifier)
+                  .setQuickAdd(v),
+            ),
+          ],
           const SizedBox(height: 24),
 
           // ── Data section ───────────────────────────────────
@@ -346,6 +456,32 @@ class SettingsScreen extends ConsumerWidget {
       );
     }
   }
+
+  Future<void> _showReminderTimePicker(
+      BuildContext context,
+      WidgetRef ref,
+      NotificationSettings notif) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+          hour: notif.dailyHour,
+          minute: notif.dailyMinute),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.teal,
+            surface: AppColors.bgCard,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      ref
+          .read(notificationSettingsProvider.notifier)
+          .setDailyTime(picked.hour, picked.minute);
+    }
+  }
 }
 
 // ── Reusable widgets ───────────────────────────────────────────────────────────
@@ -432,6 +568,78 @@ class _SettingsTile extends StatelessWidget {
                 color: AppColors.textHint, size: 18),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SettingsSwitchTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingsSwitchTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlowContainer(
+      glowColor: AppColors.bgSurface,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: AppColors.teal,
+            activeThumbColor: Colors.white,
+            inactiveThumbColor:
+                AppColors.textSecondary,
+            inactiveTrackColor: AppColors.bgSurface,
+          ),
+        ],
       ),
     );
   }

@@ -29,6 +29,14 @@ dependencies:
   # Utils
   shared_preferences: ^2.2.2
 
+  # Notifications (run flutter pub get after adding)
+  flutter_local_notifications: ^20.1.0
+  timezone: ^0.10.1
+  flutter_timezone: ^3.0.1
+
+  # UI
+  flutter_spinkit: ^5.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

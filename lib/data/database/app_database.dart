@@ -83,6 +83,18 @@ class RecurringTransactions extends Table {
       dateTime().withDefault(currentDateAndTime)();
 }
 
+class AppNotifications extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text().withLength(min: 1, max: 120)();
+  TextColumn get body => text().withLength(max: 300)();
+  TextColumn get type => text()();
+  TextColumn get payload => text().nullable()();
+  BoolColumn get isRead =>
+      boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}
+
 // ─── Result classes ────────────────────────────────────────────────────────────
 
 class TransactionWithDetails {
@@ -313,6 +325,31 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     return result;
   }
 
+  /// Expense totals bucketed by ISO weekday (1 = Monday ... 7 = Sunday).
+  Future<Map<int, double>> getSpendingByDayOfWeek(
+      DateTime month,
+      {int? walletId}) async {
+    final start = DateTime(month.year, month.month, 1);
+    final end =
+        DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    final query = select(transactions)
+      ..where((t) {
+        final base = t.date.isBetweenValues(start, end) &
+            t.type.equals('expense');
+        if (walletId != null) {
+          return base & t.walletId.equals(walletId);
+        }
+        return base;
+      });
+    final rows = await query.get();
+    final Map<int, double> result = {};
+    for (final t in rows) {
+      result[t.date.weekday] =
+          (result[t.date.weekday] ?? 0) + t.amount;
+    }
+    return result;
+  }
+
   Future<List<MonthlyTotals>> getLast6MonthsTotals() async {
     final List<MonthlyTotals> result = [];
     final now = DateTime.now();
@@ -332,6 +369,15 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deleteTransaction(int id) =>
       (delete(transactions)..where((t) => t.id.equals(id))).go();
+
+  Future<int> countTransactionsForCategory(int categoryId) async {
+    final count = transactions.id.count();
+    final query = selectOnly(transactions)
+      ..addColumns([count])
+      ..where(transactions.categoryId.equals(categoryId));
+    final row = await query.getSingle();
+    return row.read(count) ?? 0;
+  }
 }
 
 @DriftAccessor(tables: [SavingsGoals])
@@ -410,6 +456,9 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       (update(categories)..where((c) => c.id.equals(id))).write(
         CategoriesCompanion(monthlyLimit: Value(limit)),
       );
+
+  Future<void> deleteCategory(int id) =>
+      (delete(categories)..where((c) => c.id.equals(id))).go();
 
   Future<void> seedDefaultCategories() async {
     final existing = await select(categories).get();
@@ -507,6 +556,45 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
       );
 }
 
+@DriftAccessor(tables: [AppNotifications])
+class NotificationsDao extends DatabaseAccessor<AppDatabase>
+    with _$NotificationsDaoMixin {
+  NotificationsDao(super.db);
+
+  Stream<List<AppNotification>> watchAll() =>
+      (select(appNotifications)
+            ..orderBy([
+              (t) => OrderingTerm.desc(t.createdAt),
+            ]))
+          .watch();
+
+  Future<int> insertNotification(
+          AppNotificationsCompanion entry) =>
+      into(appNotifications).insert(entry);
+
+  Future<void> markAsRead(int id) =>
+      (update(appNotifications)
+            ..where((t) => t.id.equals(id)))
+          .write(
+        const AppNotificationsCompanion(
+            isRead: Value(true)),
+      );
+
+  Future<void> markAllAsRead() =>
+      update(appNotifications).write(
+        const AppNotificationsCompanion(
+            isRead: Value(true)),
+      );
+
+  Future<void> deleteNotification(int id) =>
+      (delete(appNotifications)
+            ..where((t) => t.id.equals(id)))
+          .go();
+
+  Future<void> clearAll() =>
+      delete(appNotifications).go();
+}
+
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 @DriftDatabase(
@@ -516,6 +604,7 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
     Transactions,
     SavingsGoals,
     RecurringTransactions,
+    AppNotifications,
   ],
   daos: [
     WalletsDao,
@@ -523,13 +612,14 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
     SavingsGoalsDao,
     CategoriesDao,
     RecurringDao,
+    NotificationsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -540,7 +630,11 @@ class AppDatabase extends _$AppDatabase {
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
-            await m.addColumn(savingsGoals, savingsGoals.imagePath);
+            await m.addColumn(
+                savingsGoals, savingsGoals.imagePath);
+          }
+          if (from < 3) {
+            await m.createTable(appNotifications);
           }
         },
       );

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budgetko/features/categories/categories_screen.dart';
 import '../features/splash/splash_screen.dart';
+import '../features/onboarding/onboarding_screen.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/transactions/transactions_screen.dart';
 import '../features/transactions/quick_add_screen.dart';
+import '../features/notifications/notifications_screen.dart';
 import '../features/goals/goals_screen.dart';
 import '../features/alerts/alerts_screen.dart';
 import '../features/recurring/recurring_screen.dart';
@@ -11,6 +15,7 @@ import '../features/reports/reports_screen.dart';
 import '../features/wallets/wallets_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../core/theme/app_theme.dart';
+import '../data/repositories/providers.dart';
 
 // ── Global drawer key ──────────────────────────────────────────────────────────
 
@@ -22,10 +27,23 @@ void openDrawer() {
 
 final appRouter = GoRouter(
   initialLocation: '/splash',
+  refreshListenable: onboardingComplete,
+  redirect: (context, state) {
+    final location = state.matchedLocation;
+    if (onboardingComplete.value) {
+      return location == '/onboarding' ? '/' : null;
+    }
+    const allowed = {'/splash', '/onboarding'};
+    return allowed.contains(location) ? null : '/onboarding';
+  },
   routes: [
     GoRoute(
       path: '/splash',
       builder: (c, s) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding',
+      builder: (c, s) => const OnboardingScreen(),
     ),
     GoRoute(
       path: '/quick-add',
@@ -41,11 +59,17 @@ final appRouter = GoRouter(
             path: '/transactions',
             builder: (c, s) => const TransactionsScreen()),
         GoRoute(
+            path: '/notifications',
+            builder: (c, s) => const NotificationsScreen()),
+        GoRoute(
             path: '/goals',
             builder: (c, s) => const GoalsScreen()),
         GoRoute(
             path: '/alerts',
             builder: (c, s) => const AlertsScreen()),
+        GoRoute(
+            path: '/categories',
+            builder: (c, s) => const CategoriesScreen()),
         GoRoute(
             path: '/recurring',
             builder: (c, s) => const RecurringScreen()),
@@ -65,42 +89,98 @@ final appRouter = GoRouter(
 
 // ── App shell with side drawer ─────────────────────────────────────────────────
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  static const _maxHistory = 30;
+  final List<String> _history = [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final location = GoRouterState.of(context).uri.path;
+    if (_history.isEmpty || _history.last != location) {
+      setState(() {
+        _history.add(location);
+        if (_history.length > _maxHistory) {
+          _history.removeAt(0);
+        }
+      });
+    }
+  }
+
+  void _goBack() {
+    if (_history.length <= 1) return;
+    setState(() => _history.removeLast());
+    context.go(_history.last);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final showQuickAdd =
-        location != '/goals' &&
-        location != '/recurring' &&
-        location != '/wallets' &&
-        location != '/settings';
+    final isCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    final showQuickAdd = isCurrent &&
+        (location == '/' || location == '/transactions');
 
-    return Scaffold(
+    return PopScope(
+      canPop: _history.length <= 1,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
       key: _drawerKey,
       backgroundColor: AppColors.bg,
       drawer: _AppDrawer(),
-      body: child,
+      body: widget.child,
       floatingActionButton: showQuickAdd
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/quick-add'),
-              backgroundColor: AppColors.teal,
+          ? Material(
+              shape: const CircleBorder(),
+              color: Colors.transparent,
               elevation: 0,
-              icon: const Icon(Icons.bolt, color: Colors.white),
-              label: const Text(
-                'Quick Add',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => context.push('/quick-add'),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.tealLight,
+                        AppColors.tealDark,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.teal
+                            .withValues(alpha: 0.5),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                 ),
               ),
             )
           : null,
       floatingActionButtonLocation: showQuickAdd
-          ? FloatingActionButtonLocation.centerFloat
+          ? FloatingActionButtonLocation.endFloat
           : null,
+      ),
     );
   }
 }
@@ -193,6 +273,19 @@ class _AppDrawer extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       context.go('/transactions');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.notifications_outlined,
+                    activeIcon: Icons.notifications,
+                    label: 'Notifications',
+                    path: '/notifications',
+                    currentPath: location,
+                    trailing:
+                        const _NotificationCountBadge(),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/notifications');
                     },
                   ),
                   _DrawerItem(
@@ -295,6 +388,7 @@ class _DrawerItem extends StatelessWidget {
   final String path;
   final String currentPath;
   final VoidCallback onTap;
+  final Widget? trailing;
 
   const _DrawerItem({
     required this.icon,
@@ -303,6 +397,7 @@ class _DrawerItem extends StatelessWidget {
     required this.path,
     required this.currentPath,
     required this.onTap,
+    this.trailing,
   });
 
   bool get isActive => currentPath == path;
@@ -350,7 +445,10 @@ class _DrawerItem extends StatelessWidget {
                 fontSize: 15,
               ),
             ),
-            if (isActive) ...[
+            if (trailing != null) ...[
+              const Spacer(),
+              trailing!,
+            ] else if (isActive) ...[
               const Spacer(),
               Container(
                 width: 6,
@@ -369,6 +467,32 @@ class _DrawerItem extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NotificationCountBadge extends ConsumerWidget {
+  const _NotificationCountBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNotificationsProvider);
+    if (unread <= 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color:
+            AppColors.expense.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        unread > 99 ? '99+' : '$unread',
+        style: const TextStyle(
+            color: AppColors.expense,
+            fontSize: 11,
+            fontWeight: FontWeight.w700),
       ),
     );
   }
