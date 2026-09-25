@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Gradle reports generated on every build
+/android/build/
+/android/.gradle/
+/android/local.properties
+
+# Local Dart and Flutter tooling
+devtools_options.yaml
