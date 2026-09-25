@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../../core/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -11,6 +10,8 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../core/budget/budget_status.dart';
+import '../../../../core/utils/category_icons.dart';
+import '../../../../core/utils/goal_progress.dart';
 import '../transactions/transaction_sheet.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -30,12 +31,6 @@ class DashboardScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: Row(
           children: [
             Container(
@@ -154,6 +149,8 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // ── Spending insights ────────────────────────────────
+            const _SectionHeader(title: 'Spending insights'),
+            const SizedBox(height: 8),
             const _SpendingInsightsCard(),
             const SizedBox(height: 16),
 
@@ -331,6 +328,7 @@ class _WalletChips extends StatelessWidget {
   IconData _walletIcon(String type) {
     return switch (type) {
       'cash' => Icons.payments_outlined,
+      'ewallet' => Icons.account_balance_wallet_outlined,
       'gcash' => Icons.phone_android_outlined,
       'bank' => Icons.account_balance_outlined,
       _ => Icons.wallet_outlined,
@@ -951,29 +949,15 @@ class _SpendingInsightsCard extends ConsumerWidget {
 
         if (rows.isEmpty) return const SizedBox.shrink();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Spending insights',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GlowContainer(
-              glowColor: AppColors.teal,
-              glowRadius: 12,
-              padding: const EdgeInsets.all(16),
-              color: AppColors.bgCard,
-              borderRadius: BorderRadius.circular(20),
-              child: Column(
-                children: rows,
-              ),
-            ),
-          ],
+        return GlowContainer(
+          glowColor: AppColors.teal,
+          glowRadius: 12,
+          padding: const EdgeInsets.all(16),
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            children: rows,
+          ),
         );
       },
       loading: () => const _LoadingCard(height: 140),
@@ -1168,6 +1152,7 @@ class _BudgetRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   cat.name,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: AppColors.textPrimary,
@@ -1175,44 +1160,66 @@ class _BudgetRow extends StatelessWidget {
                       fontWeight: FontWeight.w600),
                 ),
               ),
-              if (entry.hasRollover)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.autorenew,
-                          size: 11, color: AppColors.teal),
-                      const SizedBox(width: 2),
-                      Text(
-                        '+${Formatters.currencyCompact(entry.rolledOver)}',
-                        style: const TextStyle(
-                            color: AppColors.teal,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
+              if (entry.hasRollover) ...[
+                const SizedBox(width: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.autorenew,
+                        size: 11, color: AppColors.teal),
+                    const SizedBox(width: 3),
+                    Text(
+                      '+${Formatters.currencyCompact(entry.rolledOver)}',
+                      style: const TextStyle(
+                          color: AppColors.teal,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ],
                 ),
-              if (entry.isOver)
-                const _StatusPill(
-                    label: 'Over!',
-                    color: AppColors.expense)
-              else if (entry.isNear)
+              ],
+              if (entry.isOver || entry.isNear) ...[
+                const SizedBox(width: 8),
                 _StatusPill(
-                    label:
-                        '${(entry.progress * 100).toStringAsFixed(0)}%',
-                    color: AppColors.warning),
-              const SizedBox(width: 8),
-              Text(
-                '${Formatters.currencyCompact(entry.spent)} / ${Formatters.currencyCompact(entry.effectiveLimit)}',
-                style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11),
+                  label: entry.isOver
+                      ? 'Over'
+                      : '${(entry.progress * 100).toStringAsFixed(0)}%',
+                  color: entry.isOver
+                      ? AppColors.expense
+                      : AppColors.warning,
+                ),
+              ],
+              const SizedBox(width: 10),
+              RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: Formatters.currencyCompact(
+                          entry.spent),
+                      style: TextStyle(
+                        color: entry.isOver
+                            ? AppColors.expense
+                            : AppColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(
+                      text:
+                          ' / ${Formatters.currencyCompact(entry.effectiveLimit)}',
+                      style: const TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
@@ -1428,8 +1435,10 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
+    final progress = goalProgress(
+      goal.currentAmount,
+      goal.targetAmount,
+    );
     final percent = (progress * 100).round();
     final remaining =
         (goal.targetAmount - goal.currentAmount).clamp(0.0, double.infinity);
@@ -1463,10 +1472,12 @@ class _GoalCard extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
                   goal.name,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: AppColors.textPrimary,
@@ -1475,14 +1486,30 @@ class _GoalCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  '${Formatters.currencyCompact(goal.currentAmount)} / ${Formatters.currencyCompact(goal.targetAmount)}',
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12),
+              RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: Formatters.currencyCompact(
+                          goal.currentAmount),
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' / ${Formatters.currencyCompact(goal.targetAmount)}',
+                      style: const TextStyle(
+                        color: AppColors.textHint,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1615,24 +1642,7 @@ class _TodayCard extends StatefulWidget {
   State<_TodayCard> createState() => _TodayCardState();
 }
 
-IconData _categoryIcon(String icon) {
-  return switch (icon) {
-    'food' => Icons.restaurant_outlined,
-    'transport' => Icons.directions_car_outlined,
-    'shopping' => Icons.shopping_bag_outlined,
-    'bills' => Icons.receipt_outlined,
-    'health' => Icons.favorite_outline,
-    'entertainment' => Icons.movie_outlined,
-    'savings' => Icons.savings_outlined,
-    'salary' => Icons.work_outline,
-    'freelance' => Icons.laptop_outlined,
-    'business' => Icons.business_center_outlined,
-    'investment' => Icons.trending_up_outlined,
-    'allowance' => Icons.wallet_outlined,
-    'education' => Icons.school_outlined,
-    _ => Icons.attach_money,
-  };
-}
+IconData _categoryIcon(String icon) => categoryIconData(icon);
 
 class _TodayCardState extends State<_TodayCard> {
   Timer? _timer;
