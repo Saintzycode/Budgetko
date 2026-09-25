@@ -6,7 +6,6 @@ import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../core/router.dart';
 
 class WalletsScreen extends ConsumerWidget {
   const WalletsScreen({super.key});
@@ -19,13 +18,6 @@ class WalletsScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: const Text(
           'Wallets',
           style: TextStyle(
@@ -339,6 +331,7 @@ class _WalletCard extends ConsumerWidget {
   IconData _walletIcon(String type) {
     return switch (type) {
       'cash' => Icons.payments_outlined,
+      'ewallet' => Icons.account_balance_wallet_outlined,
       'gcash' => Icons.phone_android_outlined,
       'bank' => Icons.account_balance_outlined,
       _ => Icons.wallet_outlined,
@@ -348,7 +341,8 @@ class _WalletCard extends ConsumerWidget {
   String _walletTypeName(String type) {
     return switch (type) {
       'cash' => 'Cash Wallet',
-      'gcash' => 'GCash',
+      'ewallet' => 'E-Wallet',
+      'gcash' => 'E-Wallet',
       'bank' => 'Bank Account',
       _ => 'Wallet',
     };
@@ -476,6 +470,7 @@ class _AddWalletSheetState
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
   String _type = 'cash';
+  String? _presetColor;
 
   final List<Map<String, dynamic>> _types = [
     {
@@ -485,9 +480,9 @@ class _AddWalletSheetState
       'color': '#1D9E75',
     },
     {
-      'key': 'gcash',
-      'label': 'GCash',
-      'icon': Icons.phone_android_outlined,
+      'key': 'ewallet',
+      'label': 'E-Wallet',
+      'icon': Icons.account_balance_wallet_outlined,
       'color': '#007DFF',
     },
     {
@@ -497,6 +492,19 @@ class _AddWalletSheetState
       'color': '#AB47BC',
     },
   ];
+
+  static const _presets = <String, List<Map<String, String>>>{
+    'ewallet': [
+      {'name': 'GCash', 'color': '#007DFF'},
+      {'name': 'PayMaya', 'color': '#00A8E8'},
+    ],
+    'bank': [
+      {'name': 'BDO', 'color': '#0B4C8C'},
+      {'name': 'BPI', 'color': '#B31B34'},
+      {'name': 'GoTyme Bank', 'color': '#00A8E8'},
+      {'name': 'MariBank', 'color': '#EE4D2D'},
+    ],
+  };
 
   @override
   void dispose() {
@@ -550,8 +558,10 @@ class _AddWalletSheetState
                     AppColors.fromHex(t['color'] as String);
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () =>
-                        setState(() => _type = t['key']),
+                    onTap: () => setState(() {
+                      _type = t['key'];
+                      _presetColor = null;
+                    }),
                     child: AnimatedContainer(
                       duration:
                           const Duration(milliseconds: 150),
@@ -602,11 +612,63 @@ class _AddWalletSheetState
             ),
             const SizedBox(height: 12),
 
+            // Preset wallets for the selected type
+            if (_presets[_type] case final presets?)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: presets.map((p) {
+                  final color = AppColors.fromHex(p['color']!);
+                  final isSelected =
+                      _nameController.text == p['name'];
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      _nameController.text = p['name']!;
+                      _presetColor = p['color'];
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? color.withValues(alpha: 0.15)
+                            : AppColors.bgSurface,
+                        borderRadius:
+                            BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? color
+                              : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        p['name']!,
+                        style: TextStyle(
+                          color: isSelected
+                              ? color
+                              : AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+
+            const SizedBox(height: 12),
+
             // Name
             TextFormField(
               controller: _nameController,
               style: const TextStyle(
                   color: AppColors.textPrimary),
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                   labelText: 'Wallet name'),
               validator: (v) => v == null || v.isEmpty
@@ -650,10 +712,11 @@ class _AddWalletSheetState
         .firstWhere((t) => t['key'] == _type);
     await ref.read(walletsDaoProvider).insertWallet(
           WalletsCompanion.insert(
-            name: _nameController.text,
+            name: _nameController.text.trim(),
             type: _type,
             icon: _type,
-            color: selectedType['color'] as String,
+            color: _presetColor ??
+                selectedType['color'] as String,
             balance: Value(
               double.tryParse(_balanceController.text) ??
                   0,

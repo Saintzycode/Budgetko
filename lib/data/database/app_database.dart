@@ -11,7 +11,7 @@ part 'app_database.g.dart';
 class Wallets extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
-  TextColumn get type => text()(); // 'cash' | 'gcash' | 'bank'
+  TextColumn get type => text()(); // 'cash' | 'ewallet' | 'bank'
   TextColumn get icon => text()();
   TextColumn get color => text()();
   RealColumn get balance => real().withDefault(const Constant(0))();
@@ -161,6 +161,8 @@ class WalletsDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteWallet(int id) =>
       (delete(wallets)..where((w) => w.id.equals(id))).go();
 
+  Future<int> deleteAllWallets() => delete(wallets).go();
+
   Future<void> seedDefaultWallets() async {
     final existing = await select(wallets).get();
     if (existing.isNotEmpty) return;
@@ -173,9 +175,9 @@ class WalletsDao extends DatabaseAccessor<AppDatabase>
         isDefault: const Value(true),
       ),
       WalletsCompanion.insert(
-        name: 'GCash',
-        type: 'gcash',
-        icon: 'gcash',
+        name: 'E-Wallet',
+        type: 'ewallet',
+        icon: 'ewallet',
         color: '#007DFF',
       ),
       WalletsCompanion.insert(
@@ -378,6 +380,11 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     final row = await query.getSingle();
     return row.read(count) ?? 0;
   }
+
+  Future<List<Transaction>> getAllRawTransactions() =>
+      select(transactions).get();
+
+  Future<int> deleteAllTransactions() => delete(transactions).go();
 }
 
 @DriftAccessor(tables: [SavingsGoals])
@@ -433,6 +440,10 @@ class SavingsGoalsDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> deleteGoal(int id) =>
       (delete(savingsGoals)..where((g) => g.id.equals(id))).go();
+
+  Future<List<SavingsGoal>> getAllGoals() => select(savingsGoals).get();
+
+  Future<int> deleteAllGoals() => delete(savingsGoals).go();
 }
 
 @DriftAccessor(tables: [Categories])
@@ -459,6 +470,8 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteCategory(int id) =>
       (delete(categories)..where((c) => c.id.equals(id))).go();
+
+  Future<int> deleteAllCategories() => delete(categories).go();
 
   Future<void> seedDefaultCategories() async {
     final existing = await select(categories).get();
@@ -540,6 +553,11 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteRecurring(int id) =>
       (delete(recurringTransactions)..where((r) => r.id.equals(id)))
           .go();
+
+  Future<List<RecurringTransaction>> getAllRecurring() =>
+      select(recurringTransactions).get();
+
+  Future<int> deleteAllRecurring() => delete(recurringTransactions).go();
 
   Future<List<RecurringTransaction>> getActiveRecurring() =>
       (select(recurringTransactions)
