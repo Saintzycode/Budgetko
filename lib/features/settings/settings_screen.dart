@@ -15,6 +15,9 @@ class SettingsScreen extends ConsumerWidget {
     final budget = ref.watch(monthlyBudgetProvider);
     final notif = ref.watch(notificationSettingsProvider);
     final carryover = ref.watch(carryoverEnabledProvider);
+    // Read from the package rather than hardcoded so it cannot drift away
+    // from the version in pubspec.yaml.
+    final version = ref.watch(appVersionProvider).valueOrNull ?? '—';
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -276,22 +279,23 @@ class SettingsScreen extends ConsumerWidget {
           const _SectionTitle(title: 'About'),
           const SizedBox(height: 8),
 
-          const GlowContainer(
+          GlowContainer(
             glowColor: AppColors.bgSurface,
-            padding:  EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _InfoRow(
+                const _InfoRow(
                     label: 'App', value: 'BudgetKo'),
-                 Divider(height: 16),
-                _InfoRow(
-                    label: 'Version', value: '2.1.0'),
-                 Divider(height: 16),
-                _InfoRow(
+                const Divider(height: 16),
+                // Read from the package rather than hardcoded so it
+                // cannot drift away from the version in pubspec.yaml.
+                _InfoRow(label: 'Version', value: version),
+                const Divider(height: 16),
+                const _InfoRow(
                     label: 'Database',
                     value: 'SQLite (drift)'),
-                 Divider(height: 16),
-                _InfoRow(
+                const Divider(height: 16),
+                const _InfoRow(
                     label: 'Framework',
                     value: 'Flutter'),
               ],

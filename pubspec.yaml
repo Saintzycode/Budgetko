@@ -28,6 +28,7 @@ dependencies:
 
   # Utils
   shared_preferences: ^2.2.2
+  package_info_plus: ^8.1.0
 
   # Notifications (run flutter pub get after adding)
   flutter_local_notifications: ^20.1.0

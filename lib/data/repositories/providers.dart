@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../database/app_database.dart';
 import '../../core/notifications/notification_service.dart';
 import '../../core/notifications/notification_triggers.dart';
@@ -568,3 +569,10 @@ void invalidateTransactionAggregates(WidgetRef ref) {
     ..invalidate(allTransactionsProvider)
     ..invalidate(transactionsForMonthProvider);
 }
+
+/// Reads the version from the installed package so the About row always
+/// matches what pubspec.yaml declares and what Android reports.
+final appVersionProvider = FutureProvider<String>((ref) async {
+  final info = await PackageInfo.fromPlatform();
+  return info.version;
+});
