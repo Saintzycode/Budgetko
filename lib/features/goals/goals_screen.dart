@@ -112,6 +112,7 @@ class GoalsScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: AppColors.bgCard,
       shape: const RoundedRectangleBorder(
@@ -396,6 +397,7 @@ class _GoalCard extends ConsumerWidget {
   void _showMoreSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: AppColors.bgCard,
       shape: const RoundedRectangleBorder(
         borderRadius:
@@ -638,6 +640,7 @@ class _GoalCard extends ConsumerWidget {
   void _showPrioritySheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: AppColors.bgCard,
       shape: const RoundedRectangleBorder(
         borderRadius:

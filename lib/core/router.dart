@@ -222,6 +222,7 @@ class _FloatingNavBar extends StatelessWidget {
     final router = GoRouter.of(context);
     await showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (sheetContext) => Container(

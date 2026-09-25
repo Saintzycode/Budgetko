@@ -10,6 +10,7 @@ Future<DateTime?> showMonthPicker(
 }) {
   return showModalBottomSheet<DateTime>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: AppColors.bgCard,
     shape: const RoundedRectangleBorder(

@@ -14,6 +14,7 @@ Future<void> showTransactionSheet(
 ) async {
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (_) => _TransactionSheet(item: item),
@@ -282,6 +283,7 @@ Future<void> showTransactionEditor(
 ) async {
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (_) => _TransactionEditor(transaction: transaction),
