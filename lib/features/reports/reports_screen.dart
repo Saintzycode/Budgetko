@@ -6,7 +6,6 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../core/router.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
@@ -22,13 +21,6 @@ class ReportsScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: const Text(
           'Reports',
           style: TextStyle(
