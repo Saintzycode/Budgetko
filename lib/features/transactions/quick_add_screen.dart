@@ -9,6 +9,7 @@ import '../../../../data/repositories/providers.dart';
 import '../../../../core/notifications/notification_triggers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/category_icons.dart';
 
 class QuickAddScreen extends ConsumerStatefulWidget {
   const QuickAddScreen({super.key});
@@ -28,19 +29,6 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
   Wallet? _selectedWallet;
   DateTime _selectedDate = DateTime.now();
   bool _saving = false;
-  late final TextEditingController _noteController;
-
-  @override
-  void initState() {
-    super.initState();
-    _noteController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
 
   double get _amount => double.tryParse(_input) ?? 0;
   bool get _isExpense => _type == 'expense';
@@ -56,6 +44,15 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
     return _selectedDate.year == now.year &&
         _selectedDate.month == now.month &&
         _selectedDate.day == now.day;
+  }
+
+  String get _origin {
+    final from = GoRouterState.of(context).uri
+        .queryParameters['from'];
+    if (from == null || from.isEmpty) return '/transactions';
+    if (!from.startsWith('/')) return '/transactions';
+    if (from == '/quick-add') return '/transactions';
+    return from;
   }
 
   void _onNumpad(String value) {
@@ -136,50 +133,55 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
       }
     });
 
+    // The keyboard overlays the window rather than shrinking it, so the
+    // body still receives full height. Applying viewInsets as padding here
+    // would lift the save bar on every keyboard animation, so the layout
+    // stays static and only the numpad reacts to the keyboard.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // viewPadding is the raw display inset and does not change when the
+    // keyboard opens, unlike padding, which drops to zero. Using it keeps
+    // the save bar pinned to the same spot throughout the keyboard
+    // animation.
+    final stableBottom = MediaQuery.viewPaddingOf(context).bottom;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) context.go('/transactions');
+        if (!didPop) context.go(_origin);
       },
       child: Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.bg,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildHeader(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: _buildAmountCard(),
+            ),
             Expanded(
+              flex: keyboardOpen ? 1 : 2,
               child: SingleChildScrollView(
                 padding:
-                    const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    const EdgeInsets.fromLTRB(16, 10, 16, 8),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
                   children: [
-                    _buildAmountCard(),
+                    _buildSelectorRow(
+                        categoriesAsync, walletsAsync),
                     const SizedBox(height: 10),
                     _buildQuickChips(),
-                    const SizedBox(height: 12),
-                    _buildNoteField(),
-                    const SizedBox(height: 16),
-                    _buildSectionLabel('Category'),
-                    const SizedBox(height: 8),
-                    _buildCategoryGrid(categoriesAsync),
-                    const SizedBox(height: 16),
-                    _buildSectionLabel('Wallet'),
-                    const SizedBox(height: 8),
-                    _buildWalletRow(walletsAsync),
-                    const SizedBox(height: 16),
-                    _buildSectionLabel('Amount'),
-                    const SizedBox(height: 8),
-                    _buildNumpad(),
                   ],
                 ),
               ),
             ),
-            _buildSaveBar(),
+            if (!keyboardOpen)
+              Expanded(flex: 3, child: _buildNumpad()),
+            _buildSaveBar(stableBottom),
           ],
         ),
-        ),
+      ),
       ),
       );
   }
@@ -194,7 +196,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
           IconButton(
             icon: const Icon(Icons.arrow_back,
                 color: AppColors.textPrimary),
-            onPressed: () => context.go('/transactions'),
+            onPressed: () => context.go(_origin),
           ),
           const Expanded(
             child: Text(
@@ -253,18 +255,17 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
   Widget _buildAmountCard() {
     return GlowContainer(
       glowColor: _typeColor,
-      glowRadius: 20,
-      padding:
-          const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      glowRadius: 18,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       color: AppColors.bgCard,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(22),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               color: AppColors.bgSurface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
@@ -285,7 +286,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: FittedBox(
@@ -294,19 +295,11 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
                 '₱ ${_input.isEmpty ? "0" : _input}',
                 style: TextStyle(
                   color: _typeColor,
-                  fontSize: 44,
+                  fontSize: 40,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -1,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _selectedCategory?.name ?? 'Select a category',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
             ),
           ),
         ],
@@ -404,256 +397,162 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
     );
   }
 
-  // ── Note field ───────────────────────────────────────────────────────────
+  // ── Selector row ─────────────────────────────────────────────────────────
 
-  Widget _buildNoteField() {
-    return TextField(
-      controller: _noteController,
-      maxLength: 200,
-      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-      textInputAction: TextInputAction.done,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 14,
-      ),
-      decoration: InputDecoration(
-        hintText: 'Add a note (optional)',
-        hintStyle: const TextStyle(
-          color: AppColors.textHint,
-          fontSize: 14,
-        ),
-        prefixIcon: const Icon(
-          Icons.edit_outlined,
-          color: AppColors.textHint,
-          size: 18,
-        ),
-        filled: true,
-        fillColor: AppColors.bgCard,
-        counterText: '',
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.bgSurface,
-            width: 0.5,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.bgSurface,
-            width: 0.5,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.teal,
-            width: 1,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-
-  // ── Category grid ────────────────────────────────────────────────────────
-
-  Widget _buildCategoryGrid(
-      AsyncValue<List<Category>> categoriesAsync) {
-    return categoriesAsync.when(
-      data: (cats) {
-        final filtered = cats
-            .where((c) => _isExpense
-                ? !c.isIncome
-                : c.isIncome)
-            .toList();
-        if (filtered.isEmpty) {
-          return const Text(
-            'No categories found',
-            style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13),
-          );
-        }
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate:
-              const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 0.82,
-          ),
-          itemCount: filtered.length,
-          itemBuilder: (ctx, i) {
-            final cat = filtered[i];
-            final isSelected =
-                _selectedCategory?.id == cat.id;
-            final color = AppColors.fromHex(cat.color);
-            return GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(
-                    () => _selectedCategory = cat);
-              },
-              child: AnimatedContainer(
-                duration:
-                    const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? color.withValues(alpha: 0.18)
-                      : AppColors.bgCard,
-                  borderRadius:
-                      BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected
-                        ? color
-                        : AppColors.bgSurface,
-                    width: isSelected ? 1 : 0.5,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: color.withValues(
-                                alpha: 0.25),
-                            blurRadius: 12,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _categoryIcon(cat.icon),
-                      color: isSelected
-                          ? color
-                          : AppColors.textSecondary,
-                      size: 22,
+  Widget _buildSelectorRow(
+    AsyncValue<List<Category>> catsAsync,
+    AsyncValue<List<Wallet>> walletsAsync,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          child: _FieldShell(
+            icon: Icons.category_outlined,
+            child: catsAsync.when(
+              data: (cats) {
+                final filtered = cats
+                    .where((c) =>
+                        _isExpense ? !c.isIncome : c.isIncome)
+                    .toList();
+                final selectedId = filtered
+                        .any((c) => c.id == _selectedCategory?.id)
+                    ? _selectedCategory?.id
+                    : null;
+                return DropdownButton<int?>(
+                  value: selectedId,
+                  isExpanded: true,
+                  isDense: true,
+                  dropdownColor: AppColors.bgCardLight,
+                  borderRadius: BorderRadius.circular(14),
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.expand_more,
+                      color: AppColors.textHint, size: 18),
+                  hint: Text(
+                    'Category',
+                    style: TextStyle(
+                      color: _selectedCategory == null
+                          ? AppColors.textHint
+                          : AppColors.textPrimary,
+                      fontSize: 13,
                     ),
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(
-                              horizontal: 4),
-                      child: Text(
-                        cat.name,
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                        overflow:
-                            TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isSelected
-                              ? color
-                              : AppColors.textSecondary,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
+                  ),
+                  style: const TextStyle(
+                      color: AppColors.textPrimary, fontSize: 13),
+                  items: [
+                    for (final cat in filtered)
+                      DropdownMenuItem<int?>(
+                        value: cat.id,
+                        child: Row(
+                          children: [
+                            Icon(
+                              categoryIconData(cat.icon),
+                              size: 15,
+                              color: AppColors.fromHex(
+                                  cat.color),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                cat.name,
+                                overflow:
+                                    TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 13),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
                   ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-      loading: () => const SizedBox(
-          height: 60,
-          child: Center(
-              child: SpinKitRipple(
-                  color: AppColors.teal, size: 28))),
-      error: (e, _) => Text('$e'),
-    );
-  }
-
-  // ── Wallet row ───────────────────────────────────────────────────────────
-
-  Widget _buildWalletRow(
-      AsyncValue<List<Wallet>> walletsAsync) {
-    return walletsAsync.when(
-      data: (wallets) => SizedBox(
-        height: 36,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: wallets.map((w) {
-            final isSelected =
-                _selectedWallet?.id == w.id;
-            final color = AppColors.fromHex(w.color);
-            return GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(
-                    () => _selectedWallet = w);
+                  onChanged: (v) {
+                    if (v == null) return;
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedCategory =
+                        filtered.firstWhere((c) => c.id == v));
+                  },
+                );
               },
-              child: AnimatedContainer(
-                duration:
-                    const Duration(milliseconds: 150),
-                margin:
-                    const EdgeInsets.only(right: 8),
-                padding:
-                    const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? color.withValues(alpha: 0.2)
-                      : AppColors.bgCard,
-                  borderRadius:
-                      BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isSelected
-                        ? color
-                        : AppColors.bgSurface,
-                    width: isSelected ? 1 : 0.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _walletIcon(w.type),
-                      size: 13,
-                      color: isSelected
-                          ? color
-                          : AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      w.name,
-                      style: TextStyle(
-                        color: isSelected
-                            ? color
-                            : AppColors.textSecondary,
-                        fontSize: 13,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+              loading: () => const SpinKitRipple(
+                  color: AppColors.teal, size: 18),
+              error: (e, _) => Text('$e',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12)),
+            ),
+          ),
         ),
-      ),
-      loading: () => const SizedBox(),
-      error: (e, _) => const SizedBox(),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _FieldShell(
+            icon: Icons.account_balance_wallet_outlined,
+            child: walletsAsync.when(
+              data: (wallets) {
+                final selectedId = wallets
+                        .any((w) => w.id == _selectedWallet?.id)
+                    ? _selectedWallet?.id
+                    : null;
+                return DropdownButton<int?>(
+                  value: selectedId,
+                  isExpanded: true,
+                  isDense: true,
+                  dropdownColor: AppColors.bgCardLight,
+                  borderRadius: BorderRadius.circular(14),
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.expand_more,
+                      color: AppColors.textHint, size: 18),
+                  hint: const Text(
+                    'Wallet',
+                    style: TextStyle(
+                        color: AppColors.textHint, fontSize: 13),
+                  ),
+                  style: const TextStyle(
+                      color: AppColors.textPrimary, fontSize: 13),
+                  items: [
+                    for (final w in wallets)
+                      DropdownMenuItem<int?>(
+                        value: w.id,
+                        child: Row(
+                          children: [
+                            Icon(
+                              walletIconData(w.type),
+                              size: 15,
+                              color: AppColors.fromHex(
+                                  w.color),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                w.name,
+                                overflow:
+                                    TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedWallet = wallets
+                        .firstWhere((w) => w.id == v));
+                  },
+                );
+              },
+              loading: () => const SpinKitRipple(
+                  color: AppColors.teal, size: 18),
+              error: (e, _) => Text('$e',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -662,10 +561,10 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
   Widget _buildNumpad() {
     return Column(
       children: [
-        _buildNumRow(['1', '2', '3']),
-        _buildNumRow(['4', '5', '6']),
-        _buildNumRow(['7', '8', '9']),
-        _buildNumRow(['.', '0', 'back']),
+        Expanded(child: _buildNumRow(['1', '2', '3'])),
+        Expanded(child: _buildNumRow(['4', '5', '6'])),
+        Expanded(child: _buildNumRow(['7', '8', '9'])),
+        Expanded(child: _buildNumRow(['.', '0', 'back'])),
       ],
     );
   }
@@ -693,7 +592,6 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
     return GestureDetector(
       onTap: () => _onNumpad(key),
       child: Container(
-        height: 58,
         decoration: BoxDecoration(
           color: isBackspace
               ? AppColors.bgSurface
@@ -722,10 +620,10 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
 
   // ── Save bar ─────────────────────────────────────────────────────────────
 
-  Widget _buildSaveBar() {
+  Widget _buildSaveBar(double bottomInset) {
     return Container(
       padding:
-          const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          EdgeInsets.fromLTRB(16, 8, 16, 16 + bottomInset),
       decoration: const BoxDecoration(
         color: AppColors.bg,
         border: Border(
@@ -789,6 +687,75 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
 
   Future<void> _save() async {
     if (!_canSave) return;
+
+    final wantsNote = await _askAddNote();
+    if (!mounted) return;
+
+    String? note;
+    if (wantsNote) {
+      final entered = await _promptForNote();
+      if (!mounted) return;
+      if (entered == null) return;
+      note = entered.isEmpty ? null : entered;
+    }
+
+    await _persist(note);
+  }
+
+  Future<bool> _askAddNote() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Add a note?',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: const Text(
+          'Do you want to add some note in this transaction?',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'No',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.teal,
+            ),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<String?> _promptForNote() {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => const _NoteDialog(),
+    );
+  }
+
+  Future<void> _persist(String? note) async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     final now = DateTime.now();
@@ -796,7 +763,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
     final amount = _amount;
     final type = _type;
     final walletId = _selectedWallet!.id;
-    final noteText = _noteController.text.trim();
+    final noteText = note?.trim() ?? '';
     try {
       await ref.read(transactionsDaoProvider).insertTransaction(
             TransactionsCompanion.insert(
@@ -832,7 +799,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
     if (!mounted) return;
     invalidateTransactionAggregates(ref);
     HapticFeedback.mediumImpact();
-    context.go('/transactions');
+    context.go(_origin);
     messenger.showSnackBar(
       SnackBar(
         backgroundColor: AppColors.bgCard,
@@ -861,32 +828,131 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
       ),
     );
   }
+}
 
-  IconData _categoryIcon(String icon) {
-    return switch (icon) {
-      'food' => Icons.restaurant_outlined,
-      'transport' => Icons.directions_car_outlined,
-      'shopping' => Icons.shopping_bag_outlined,
-      'bills' => Icons.receipt_outlined,
-      'health' => Icons.favorite_outline,
-      'entertainment' => Icons.movie_outlined,
-      'savings' => Icons.savings_outlined,
-      'salary' => Icons.work_outline,
-      'freelance' => Icons.laptop_outlined,
-      'business' => Icons.business_center_outlined,
-      'investment' => Icons.trending_up_outlined,
-      'allowance' => Icons.wallet_outlined,
-      'education' => Icons.school_outlined,
-      _ => Icons.attach_money,
-    };
+class _FieldShell extends StatelessWidget {
+  final IconData icon;
+  final Widget child;
+  const _FieldShell({
+    required this.icon,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: AppColors.bgSurface, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppColors.textHint),
+          const SizedBox(width: 8),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoteDialog extends StatefulWidget {
+  const _NoteDialog();
+
+  @override
+  State<_NoteDialog> createState() => _NoteDialogState();
+}
+
+class _NoteDialogState extends State<_NoteDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
-  IconData _walletIcon(String type) {
-    return switch (type) {
-      'cash' => Icons.payments_outlined,
-      'gcash' => Icons.phone_android_outlined,
-      'bank' => Icons.account_balance_outlined,
-      _ => Icons.wallet_outlined,
-    };
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      scrollable: true,
+      backgroundColor: AppColors.bgCard,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      title: const Text(
+        'Your note',
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 200,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        minLines: 2,
+        maxLines: 4,
+        textCapitalization: TextCapitalization.sentences,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          height: 1.4,
+        ),
+        decoration: InputDecoration(
+          hintText: 'e.g. Lunch with the team',
+          hintStyle: const TextStyle(
+            color: AppColors.textHint,
+            fontSize: 14,
+          ),
+          counterText: '',
+          filled: true,
+          fillColor: AppColors.bgSurface,
+          contentPadding: const EdgeInsets.all(14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: AppColors.bgSurface,
+              width: 0.5,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: AppColors.teal,
+              width: 1,
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(''),
+          child: const Text(
+            'Skip',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(context).pop(_controller.text.trim()),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.teal,
+          ),
+          child: const Text('Add note'),
+        ),
+      ],
+    );
   }
 }
