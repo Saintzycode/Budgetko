@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../core/router.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/backup/backup_service.dart';
 import '../export/export.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -19,13 +20,6 @@ class SettingsScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: const Text(
           'Settings',
           style: TextStyle(
@@ -228,17 +222,44 @@ class SettingsScreen extends ConsumerWidget {
           ],
           const SizedBox(height: 24),
 
-          // ── Data section ───────────────────────────────────
-          const _SectionTitle(title: 'Data'),
+          // ── Backup & restore ─────────────────────────────
+          const _SectionTitle(title: 'Backup & Restore'),
           const SizedBox(height: 8),
 
           _SettingsTile(
-            icon: Icons.download_outlined,
+            icon: Icons.backup_outlined,
+            iconColor: AppColors.teal,
+            title: 'Back up all data',
+            subtitle:
+                'Save wallets, categories, transactions, goals and settings',
+            onTap: () => _backupData(context, ref),
+          ),
+          const SizedBox(height: 8),
+
+          _SettingsTile(
+            icon: Icons.restore_outlined,
+            iconColor: AppColors.savings,
+            title: 'Restore from backup',
+            subtitle: 'Replace all current data with a backup file',
+            onTap: () => _restoreData(context, ref),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Reports ──────────────────────────────────────
+          const _SectionTitle(title: 'Reports'),
+          const SizedBox(height: 8),
+
+          _SettingsTile(
+            icon: Icons.table_view_outlined,
             iconColor: AppColors.teal,
             title: 'Export to Excel',
-            subtitle: 'Download your transactions as .xls',
+            subtitle: 'Transactions only, for viewing in a spreadsheet',
             onTap: () => _exportExcel(context, ref),
           ),
+          const SizedBox(height: 24),
+
+          // ── Danger zone ──────────────────────────────────
+          const _SectionTitle(title: 'Danger zone'),
           const SizedBox(height: 8),
 
           _SettingsTile(
@@ -378,6 +399,194 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _backupData(
+      BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final db = ref.read(databaseProvider);
+    messenger.showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.bgCard,
+        content: Text('Creating backup...',
+            style: TextStyle(color: AppColors.textPrimary)),
+      ),
+    );
+    try {
+      final path =
+          await BackupService.instance.createBackup(db);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          duration: const Duration(seconds: 6),
+          content: Text(
+            'Backup saved to $path',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          content: Text(
+            'Backup failed: $e',
+            style: const TextStyle(color: AppColors.expense),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _restoreData(
+      BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final raw = await BackupService.instance.pickBackupFile();
+    if (raw == null) return;
+
+    BackupValidation validation;
+    try {
+      validation = BackupService.instance.validate(raw);
+    } on BackupException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          duration: const Duration(seconds: 5),
+          content: Text(
+            e.message,
+            style: const TextStyle(color: AppColors.expense),
+          ),
+        ),
+      );
+      return;
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          content: Text(
+            'Could not read that file: $e',
+            style: const TextStyle(color: AppColors.expense),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCardLight,
+        title: const Text('Restore this backup?',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Backup from ${Formatters.dateFull(validation.exportedAt)}',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${validation.transactions} transactions · '
+              '${validation.wallets} wallets\n'
+              '${validation.categories} categories · '
+              '${validation.goals} goals · '
+              '${validation.recurring} recurring',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Everything currently in the app will be replaced. '
+              'This cannot be undone.',
+              style: TextStyle(
+                color: AppColors.expense,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore',
+                style: TextStyle(color: AppColors.expense)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    messenger.showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.bgCard,
+        content: Text('Restoring...',
+            style: TextStyle(color: AppColors.textPrimary)),
+      ),
+    );
+
+    try {
+      final count = await BackupService.instance
+          .restore(ref.read(databaseProvider), validation);
+      if (!context.mounted) return;
+      ref
+        ..invalidate(categoriesProvider)
+        ..invalidate(allWalletsProvider)
+        ..invalidate(allGoalsProvider)
+        ..invalidate(allRecurringProvider)
+        ..invalidate(monthlyTotalsProvider)
+        ..invalidate(spendingByCategoryProvider)
+        ..invalidate(categoryBudgetStatusProvider)
+        ..invalidate(spendingInsightsProvider)
+        ..invalidate(last6MonthsProvider)
+        ..invalidate(allTransactionsProvider)
+        ..invalidate(transactionsForMonthProvider)
+        ..invalidate(monthlyBudgetProvider)
+        ..invalidate(monthlyIncomeProvider)
+        ..invalidate(carryoverEnabledProvider)
+        ..invalidate(notificationSettingsProvider);
+
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          duration: const Duration(seconds: 5),
+          content: Text(
+            'Restored $count records',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          duration: const Duration(seconds: 5),
+          content: Text(
+            'Restore failed: $e',
+            style: const TextStyle(color: AppColors.expense),
+          ),
+        ),
+      );
+    }
   }
 
   void _showClearDialog(
