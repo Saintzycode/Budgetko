@@ -8,7 +8,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../core/widgets/month_picker.dart';
 import 'transaction_sheet.dart';
-import '../../core/router.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -39,13 +38,6 @@ class _TransactionsScreenState
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: Text(
           Formatters.month(month),
           style: const TextStyle(
@@ -428,12 +420,14 @@ class _TransactionCard extends ConsumerWidget {
           ),
         );
       },
-      onDismissed: (_) {
-        ref
+      onDismissed: (_) async {
+        final messenger = ScaffoldMessenger.of(context);
+        await ref
             .read(transactionsDaoProvider)
             .deleteTransaction(t.id);
         invalidateTransactionAggregates(ref);
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           const SnackBar(
             backgroundColor: AppColors.bgCard,
             content: Text('Transaction deleted',
@@ -554,28 +548,12 @@ class _TransactionCard extends ConsumerWidget {
     );
   }
 
-  IconData _categoryIcon(String icon) {
-    return switch (icon) {
-      'food' => Icons.restaurant_outlined,
-      'transport' => Icons.directions_car_outlined,
-      'shopping' => Icons.shopping_bag_outlined,
-      'bills' => Icons.receipt_outlined,
-      'health' => Icons.favorite_outline,
-      'entertainment' => Icons.movie_outlined,
-      'savings' => Icons.savings_outlined,
-      'salary' => Icons.work_outline,
-      'freelance' => Icons.laptop_outlined,
-      'business' => Icons.business_center_outlined,
-      'investment' => Icons.trending_up_outlined,
-      'allowance' => Icons.wallet_outlined,
-      'education' => Icons.school_outlined,
-      _ => Icons.attach_money,
-    };
-  }
+  IconData _categoryIcon(String icon) => categoryIconData(icon);
 
   IconData _walletIcon(String type) {
     return switch (type) {
       'cash' => Icons.payments_outlined,
+      'ewallet' => Icons.account_balance_wallet_outlined,
       'gcash' => Icons.phone_android_outlined,
       'bank' => Icons.account_balance_outlined,
       _ => Icons.wallet_outlined,

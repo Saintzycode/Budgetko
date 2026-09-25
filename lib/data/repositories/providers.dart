@@ -484,7 +484,11 @@ final categoryBudgetStatusProvider =
   final walletId = ref.watch(selectedWalletProvider);
   final dao = ref.watch(transactionsDaoProvider);
 
-  final categories =
+  // Watch the category stream so this recomputes whenever a category is
+  // added, edited, renamed or deleted. Falls back to a direct read only
+  // while the stream has not emitted its first value yet.
+  final categoriesAsync = ref.watch(categoriesProvider);
+  final categories = categoriesAsync.valueOrNull ??
       await ref.watch(categoriesDaoProvider).getAllCategories();
   final spending = await dao.getSpendingByCategory(
       month,

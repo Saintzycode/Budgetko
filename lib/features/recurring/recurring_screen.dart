@@ -6,7 +6,7 @@ import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../core/router.dart';
+import '../../../../core/utils/category_icons.dart';
 
 class RecurringScreen extends ConsumerWidget {
   const RecurringScreen({super.key});
@@ -19,13 +19,6 @@ class RecurringScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: const Text(
           'Recurring',
           style: TextStyle(
@@ -305,6 +298,7 @@ class _RecurringCard extends ConsumerWidget {
   IconData _walletIcon(String type) {
     return switch (type) {
       'cash' => Icons.payments_outlined,
+      'ewallet' => Icons.account_balance_wallet_outlined,
       'gcash' => Icons.phone_android_outlined,
       'bank' => Icons.account_balance_outlined,
       _ => Icons.wallet_outlined,
@@ -484,8 +478,12 @@ class _AddRecurringSheetState
                   if (v == null || v.isEmpty) {
                     return 'Enter an amount';
                   }
-                  if (double.tryParse(v) == null) {
+                  final parsed = double.tryParse(v);
+                  if (parsed == null) {
                     return 'Invalid number';
+                  }
+                  if (parsed <= 0) {
+                    return 'Amount must be above 0';
                   }
                   return null;
                 },
@@ -718,16 +716,19 @@ class _AddRecurringSheetState
                 Value(_frequency == 'monthly' ? _dayOfMonth : null),
           ),
         );
+    if (!mounted) return;
     final createdCount =
         await ref.read(databaseProvider).processDueRecurring();
+    if (!mounted) return;
     ref
       ..invalidate(allTransactionsProvider)
       ..invalidate(transactionsForMonthProvider)
       ..invalidate(monthlyTotalsProvider)
       ..invalidate(spendingByCategoryProvider)
       ..invalidate(last6MonthsProvider)
-      ..invalidate(allRecurringProvider);
-    if (!mounted) return;
+      ..invalidate(allRecurringProvider)
+      ..invalidate(spendingInsightsProvider)
+      ..invalidate(categoryBudgetStatusProvider);
     Navigator.pop(context);
     messenger
       ..hideCurrentSnackBar()
@@ -866,28 +867,12 @@ class _AddRecurringSheetState
     );
   }
 
-  IconData _categoryIcon(String icon) {
-    return switch (icon) {
-      'food' => Icons.restaurant_outlined,
-      'transport' => Icons.directions_car_outlined,
-      'shopping' => Icons.shopping_bag_outlined,
-      'bills' => Icons.receipt_outlined,
-      'health' => Icons.favorite_outline,
-      'entertainment' => Icons.movie_outlined,
-      'savings' => Icons.savings_outlined,
-      'salary' => Icons.work_outline,
-      'freelance' => Icons.laptop_outlined,
-      'business' => Icons.business_center_outlined,
-      'investment' => Icons.trending_up_outlined,
-      'allowance' => Icons.wallet_outlined,
-      'education' => Icons.school_outlined,
-      _ => Icons.category_outlined,
-    };
-  }
+  IconData _categoryIcon(String icon) => categoryIconData(icon);
 
   IconData _walletIcon(String type) {
     return switch (type) {
       'cash' => Icons.payments_outlined,
+      'ewallet' => Icons.account_balance_wallet_outlined,
       'gcash' => Icons.phone_android_outlined,
       'bank' => Icons.account_balance_outlined,
       _ => Icons.wallet_outlined,
