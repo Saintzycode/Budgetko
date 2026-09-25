@@ -1,4 +1,3 @@
-import '../../core/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/category_icons.dart';
 
 class AlertsScreen extends ConsumerWidget {
   const AlertsScreen({super.key});
@@ -18,13 +18,6 @@ class AlertsScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: const Text(
           'Spending Limits',
           style: TextStyle(
@@ -284,19 +277,7 @@ class AlertsScreen extends ConsumerWidget {
     );
   }
 
-  IconData _categoryIcon(String icon) {
-    return switch (icon) {
-      'food' => Icons.restaurant_outlined,
-      'transport' => Icons.directions_car_outlined,
-      'shopping' => Icons.shopping_bag_outlined,
-      'bills' => Icons.receipt_outlined,
-      'health' => Icons.favorite_outline,
-      'entertainment' => Icons.movie_outlined,
-      'savings' => Icons.savings_outlined,
-      'education' => Icons.school_outlined,
-      _ => Icons.category_outlined,
-    };
-  }
+  IconData _categoryIcon(String icon) => categoryIconData(icon);
 
   void _showLimitDialog(
     BuildContext context,

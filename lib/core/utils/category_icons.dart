@@ -1,27 +1,13 @@
 import 'package:flutter/material.dart';
 
-IconData categoryIconData(String icon) {
-  return switch (icon) {
-    'food' => Icons.restaurant_outlined,
-    'transport' => Icons.directions_car_outlined,
-    'shopping' => Icons.shopping_bag_outlined,
-    'bills' => Icons.receipt_outlined,
-    'health' => Icons.favorite_outline,
-    'entertainment' => Icons.movie_outlined,
-    'savings' => Icons.savings_outlined,
-    'salary' => Icons.work_outline,
-    'freelance' => Icons.laptop_outlined,
-    'business' => Icons.business_center_outlined,
-    'investment' => Icons.trending_up_outlined,
-    'allowance' => Icons.wallet_outlined,
-    'education' => Icons.school_outlined,
-    _ => Icons.attach_money,
-  };
-}
+IconData categoryIconData(String icon) =>
+    categoryIconOptions[icon] ?? Icons.attach_money;
 
 IconData walletIconData(String type) {
   return switch (type) {
     'cash' => Icons.payments_outlined,
+    'ewallet' => Icons.account_balance_wallet_outlined,
+    // Legacy key kept so existing rows still resolve to an icon.
     'gcash' => Icons.phone_android_outlined,
     'bank' => Icons.account_balance_outlined,
     _ => Icons.wallet_outlined,
