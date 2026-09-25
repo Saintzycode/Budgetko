@@ -10,7 +10,7 @@ import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../core/router.dart';
+import '../../../../core/utils/goal_progress.dart';
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -23,13 +23,6 @@ class GoalsScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         backgroundColor: AppColors.bg,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu,
-                color: AppColors.textPrimary),
-            onPressed: () => openDrawer(),
-          ),
-        ),
         title: const Text(
           'Savings Goals',
           style: TextStyle(
@@ -174,229 +167,300 @@ class _GoalCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progress =
-        (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
+    final progress = goalProgress(
+      goal.currentAmount,
+      goal.targetAmount,
+    );
     final percent = (progress * 100).round();
-    final remaining =
-        (goal.targetAmount - goal.currentAmount).clamp(0.0, double.infinity);
+    final remaining = (goal.targetAmount - goal.currentAmount)
+        .clamp(0.0, double.infinity);
     final color = AppColors.fromHex(goal.color);
     final priorityColor = _priorityColor(goal.icon);
     final isComplete = progress >= 1.0;
+    final path = goal.imagePath;
+    final hasImage = path != null && File(path).existsSync();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: GlowContainer(
-        glowColor: isComplete ? AppColors.warning : color,
-        glowRadius: isComplete ? 28 : 12,
-        padding: const EdgeInsets.all(16),
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isComplete
+                ? AppColors.warning.withValues(alpha: 0.45)
+                : color.withValues(alpha: 0.22),
+            width: 1,
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.savings_outlined,
-                    color: color, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      goal.name,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+            if (hasImage) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: GestureDetector(
+                  onTap: () => _pickImage(context, ref),
+                  child: Stack(
+                    children: [
+                      Image.file(
+                        File(path),
+                        width: double.infinity,
+                        height: 104,
+                        fit: BoxFit.cover,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () =>
-                              _showPrioritySheet(context, ref),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: priorityColor.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: priorityColor.withValues(alpha: 0.28),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              _priorityLabel(goal.icon),
-                              style: TextStyle(
-                                color: priorityColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: _ActionDot(
+                          icon: Icons.photo_camera_outlined,
+                          color: Colors.white,
+                          background: Colors.black
+                              .withValues(alpha: 0.45),
+                          onTap: () => _pickImage(context, ref),
                         ),
-                        if (goal.deadline != null) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              'By ${Formatters.dateFull(goal.deadline!)}',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.savings_outlined,
+                      color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        goal.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () =>
+                                _showPrioritySheet(context, ref),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: priorityColor
+                                    .withValues(alpha: 0.14),
+                                borderRadius:
+                                    BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _priorityLabel(goal.icon),
+                                style: TextStyle(
+                                  color: priorityColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
+                          if (goal.deadline != null) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'By ${Formatters.dateFull(goal.deadline!)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _deadlineColor(),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
+                if (!goal.isCompleted)
+                  _ActionDot(
+                    icon: Icons.add,
+                    color: color,
+                    background: color.withValues(alpha: 0.15),
+                    onTap: () => _showAddDialog(context, ref),
+                  ),
+                const SizedBox(width: 6),
+                _ActionDot(
+                  icon: Icons.more_horiz,
+                  color: AppColors.textSecondary,
+                  background: AppColors.bgSurface,
+                  onTap: () => _showMoreSheet(context, ref),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (isComplete) ...[
+              _AchievementBanner(color: color),
+              const SizedBox(height: 12),
+            ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: progress),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) {
+                  return LinearProgressIndicator(
+                    value: value,
+                    minHeight: 8,
+                    backgroundColor:
+                        color.withValues(alpha: 0.15),
+                    valueColor:
+                        AlwaysStoppedAnimation(color),
+                  );
+                },
               ),
-
-              // Actions
-              Row(
-                children: [
-                  if (!goal.isCompleted) ...[
-                    // Subtract
-                    GestureDetector(
-                      onTap: () =>
-                          _showSubtractDialog(context, ref),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.expense
-                              .withValues(alpha: 0.1),
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.remove,
-                          color: AppColors.expense,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Add
-                    GestureDetector(
-                      onTap: () =>
-                          _showAddDialog(context, ref),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color:
-                              color.withValues(alpha: 0.15),
-                          borderRadius:
-                              BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.add,
-                          color: color,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  // Delete
-                  GestureDetector(
-                    onTap: () =>
-                        _confirmDelete(context, ref),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppColors.bgSurface,
-                        borderRadius:
-                            BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.delete_outline,
-                        color: AppColors.textSecondary,
-                        size: 16,
-                      ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${Formatters.currency(goal.currentAmount)} of ${Formatters.currency(goal.targetAmount)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
                     ),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$percent%',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              isComplete
+                  ? 'Goal reached'
+                  : '${Formatters.currency(remaining)} to go',
+              style: TextStyle(
+                color:
+                    isComplete ? AppColors.warning : color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          _GoalImage(
-            imagePath: goal.imagePath,
-            color: color,
-            height: 150,
-            onTap: () => _pickImage(context, ref),
-          ),
-          const SizedBox(height: 12),
-
-          if (isComplete) ...[
-            _AchievementBanner(color: color),
-            const SizedBox(height: 12),
+            ),
           ],
+        ),
+      ),
+    );
+  }
 
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) {
-                return LinearProgressIndicator(
-                  value: value,
-                  minHeight: 8,
-                  backgroundColor: color.withValues(alpha: 0.15),
-                  valueColor: AlwaysStoppedAnimation(color),
-                );
+  Color _deadlineColor() {
+    final deadline = goal.deadline;
+    if (deadline == null) return AppColors.textSecondary;
+    final days = deadline.difference(DateTime.now()).inDays;
+    if (days < 0) return AppColors.expense;
+    if (days <= 7) return AppColors.warning;
+    return AppColors.textSecondary;
+  }
+
+  void _showMoreSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.bgSurface,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_camera_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: const Text(
+                'Change photo',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(context, ref);
               },
             ),
-          ),
-          const SizedBox(height: 10),
-
-          Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                goal.isCompleted
-                    ? 'Goal reached'
-                    : '${Formatters.currency(remaining)} to go',
-                style:
-                    TextStyle(color: color, fontSize: 12),
-              ),
-              Text(
-                '$percent% complete',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
+            if (!goal.isCompleted)
+              ListTile(
+                leading: const Icon(
+                  Icons.remove,
+                  color: AppColors.expense,
                 ),
+                title: const Text(
+                  'Subtract savings',
+                  style:
+                      TextStyle(color: AppColors.textPrimary),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showSubtractDialog(context, ref);
+                },
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${Formatters.currency(goal.currentAmount)} saved of ${Formatters.currency(goal.targetAmount)}',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: AppColors.expense,
+              ),
+              title: const Text(
+                'Delete goal',
+                style:
+                    TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(context, ref);
+              },
             ),
-          ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -674,113 +738,7 @@ double? _parseAmount(String value) {
 
 // ── Add goal sheet ─────────────────────────────────────────────────────────────
 
-class _GoalImage extends StatelessWidget {
-  final String? imagePath;
-  final Color color;
-  final double height;
-  final VoidCallback onTap;
 
-  const _GoalImage({
-    required this.imagePath,
-    required this.color,
-    required this.height,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final path = imagePath;
-    final hasImage = path != null && File(path).existsSync();
-
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: height,
-          width: double.infinity,
-          color: color.withValues(alpha: 0.1),
-          child: hasImage
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(File(path), fit: BoxFit.cover),
-                    Positioned(
-                      right: 10,
-                      bottom: 10,
-                      child: _ImageActionChip(color: color, label: 'Change'),
-                    ),
-                  ],
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        Icons.add_photo_alternate_outlined,
-                        color: color,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Upload goal image',
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ImageActionChip extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _ImageActionChip({
-    required this.color,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.photo_camera_outlined, color: color, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _AchievementBanner extends StatelessWidget {
   final Color color;
@@ -891,10 +849,14 @@ class _AddGoalSheetState
 
   @override
   Widget build(BuildContext context) {
+    final color = AppColors.fromHex(_selectedColor);
+    final amount = _parseAmount(_amountController.text) ?? 0;
+    final name = _nameController.text.trim();
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        16, 16, 16,
-        MediaQuery.of(context).viewInsets.bottom + 16,
+        16, 12, 16,
+        MediaQuery.viewInsetsOf(context).bottom + 16,
       ),
       child: Form(
         key: _formKey,
@@ -903,222 +865,101 @@ class _AddGoalSheetState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.bgSurface,
-                  borderRadius: BorderRadius.circular(2),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.bgSurface,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text('New savings goal',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                )),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            TextFormField(
-              controller: _nameController,
-              style: const TextStyle(
-                  color: AppColors.textPrimary),
-              decoration:
-                  const InputDecoration(labelText: 'Goal name'),
-              validator: (v) => v == null || v.isEmpty
-                  ? 'Enter a name'
-                  : null,
-            ),
-            const SizedBox(height: 12),
+              _buildPreview(color, name, amount),
+              const SizedBox(height: 22),
 
-            TextFormField(
-              controller: _amountController,
-              style: const TextStyle(
-                  color: AppColors.textPrimary),
-              keyboardType:
-                  const TextInputType.numberWithOptions(
-                      decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Target amount',
-                prefixText: '₱ ',
-              ),
-              validator: (v) {
-                if (v == null || v.isEmpty) {
-                  return 'Enter an amount';
-                }
-                if (_parseAmount(v) == null) {
-                  return 'Invalid number';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-
-            _GoalImage(
-              imagePath: _imagePath,
-              color: AppColors.fromHex(_selectedColor),
-              height: 132,
-              onTap: _pickImage,
-            ),
-            const SizedBox(height: 12),
-
-            // Color picker
-            const Text('Color',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12)),
-            const SizedBox(height: 8),
-            Row(
-              children: _colors.map((c) {
-                final isSelected = _selectedColor == c;
-                final color = AppColors.fromHex(c);
-                return GestureDetector(
-                  onTap: () =>
-                      setState(() => _selectedColor = c),
-                  child: AnimatedContainer(
-                    duration:
-                        const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(right: 8),
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                    child: isSelected
-                        ? const Icon(Icons.check,
-                            color: Colors.white, size: 14)
+              TextFormField(
+                controller: _nameController,
+                style:
+                    const TextStyle(color: AppColors.textPrimary),
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Goal name',
+                  prefixIcon: Icon(
+                    Icons.flag_outlined,
+                    size: 18,
+                    color: AppColors.textHint,
+                  ),
+                ),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty
+                        ? 'Enter a name'
                         : null,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 12),
 
-            const Text('Priority',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12)),
-            const SizedBox(height: 8),
-            Row(
-              children: ['low', 'medium', 'high'].map((p) {
-                final isSelected = _priority == p;
-                final color = _priorityColor(p);
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _priority = p),
-                    child: AnimatedContainer(
-                      duration:
-                          const Duration(milliseconds: 150),
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? color.withValues(alpha: 0.18)
-                            : AppColors.bgSurface,
-                        borderRadius:
-                            BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? color
-                              : Colors.transparent,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _priorityLabel(p),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: isSelected
-                              ? color
-                              : AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-
-            // Deadline
-            GestureDetector(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now()
-                      .add(const Duration(days: 30)),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime(2030),
-                  builder: (context, child) => Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
-                        primary: AppColors.teal,
-                        surface: AppColors.bgCard,
-                      ),
-                    ),
-                    child: child!,
-                  ),
-                );
-                if (picked != null) {
-                  setState(() => _deadline = picked);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.bgSurface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: AppColors.bgSurface,
-                      width: 0.5),
+              TextFormField(
+                controller: _amountController,
+                style:
+                    const TextStyle(color: AppColors.textPrimary),
+                keyboardType:
+                    const TextInputType.numberWithOptions(
+                        decimal: true),
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Target amount',
+                  prefixText: '₱ ',
                 ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today_outlined,
-                      color: AppColors.textSecondary,
-                      size: 16,
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return 'Enter an amount';
+                  }
+                  if (_parseAmount(v) == null) {
+                    return 'Invalid number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 22),
+
+              const _FieldLabel('Color'),
+              const SizedBox(height: 10),
+              _buildColorRow(),
+              const SizedBox(height: 22),
+
+              const _FieldLabel('Priority'),
+              const SizedBox(height: 10),
+              _buildPriorityRow(),
+              const SizedBox(height: 22),
+
+              const _FieldLabel('Deadline'),
+              const SizedBox(height: 10),
+              _buildDeadlineRow(),
+
+              const SizedBox(height: 26),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _deadline != null
-                          ? Formatters.dateFull(_deadline!)
-                          : 'Set deadline (optional)',
-                      style: TextStyle(
-                        color: _deadline != null
-                            ? AppColors.textPrimary
-                            : AppColors.textHint,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+                  ),
+                  child: const Text(
+                    'Create goal',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _save,
-                child: const Text('Create goal'),
-              ),
-            ),
             ],
           ),
         ),
@@ -1126,11 +967,288 @@ class _AddGoalSheetState
     );
   }
 
+  Widget _buildPreview(
+      Color color, String name, double amount) {
+    final path = _imagePath;
+    final hasImage = path != null && File(path).existsSync();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        height: 176,
+        width: double.infinity,
+        color: color.withValues(alpha: 0.12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasImage)
+              Image.file(File(path), fit: BoxFit.cover),
+            // Scrim keeps the labels legible over any photo.
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: hasImage
+                      ? [
+                          Colors.black.withValues(alpha: 0.25),
+                          Colors.black.withValues(alpha: 0.80),
+                        ]
+                      : [
+                          color.withValues(alpha: 0.26),
+                          AppColors.bgCard,
+                        ],
+                  stops: const [0, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: _CircleButton(
+                icon: Icons.photo_camera_outlined,
+                onTap: _pickImage,
+              ),
+            ),
+            if (hasImage)
+              Positioned(
+                top: 10,
+                left: 10,
+                child: GestureDetector(
+                  onTap: () => setState(() => _imagePath = null),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.close,
+                            size: 12, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text('Remove',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                            )),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    name.isEmpty ? 'Your goal' : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    amount > 0
+                        ? Formatters.currency(amount)
+                        : 'Target amount',
+                    style: TextStyle(
+                      color: amount > 0
+                          ? AppColors.textPrimary
+                          : AppColors.textHint,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _PreviewChip(
+                        icon: Icons.flag_outlined,
+                        label: _priorityLabel(_priority),
+                        color: _priorityColor(_priority),
+                      ),
+                      if (_deadline != null) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: _PreviewChip(
+                            icon: Icons.event_outlined,
+                            label: Formatters.dateFull(_deadline!),
+                            color: AppColors.teal,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorRow() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: _colors.map((c) {
+        final isSelected = _selectedColor == c;
+        final color = AppColors.fromHex(c);
+        return GestureDetector(
+          onTap: () => setState(() => _selectedColor = c),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color:
+                    isSelected ? Colors.white : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: isSelected
+                ? const Icon(Icons.check,
+                    color: Colors.white, size: 15)
+                : null,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPriorityRow() {
+    return Row(
+      children: ['low', 'medium', 'high'].map((p) {
+        final isSelected = _priority == p;
+        final color = _priorityColor(p);
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _priority = p),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? color.withValues(alpha: 0.18)
+                    : AppColors.bgSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color:
+                      isSelected ? color : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                _priorityLabel(p),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isSelected
+                      ? color
+                      : AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: isSelected
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDeadlineRow() {
+    return GestureDetector(
+      onTap: _pickDeadline,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.bgSurface,
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.calendar_today_outlined,
+              color: AppColors.textSecondary,
+              size: 16,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _deadline != null
+                    ? Formatters.dateFull(_deadline!)
+                    : 'Set deadline (optional)',
+                style: TextStyle(
+                  color: _deadline != null
+                      ? AppColors.textPrimary
+                      : AppColors.textHint,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            if (_deadline != null)
+              GestureDetector(
+                onTap: () => setState(() => _deadline = null),
+                child: const Icon(
+                  Icons.close,
+                  size: 16,
+                  color: AppColors.textHint,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDeadline() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate:
+          _deadline ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2030),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.teal,
+            surface: AppColors.bgCard,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _deadline = picked);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     await ref.read(savingsGoalsDaoProvider).insertGoal(
           SavingsGoalsCompanion.insert(
-            name: _nameController.text,
+            name: _nameController.text.trim(),
             targetAmount: _parseAmount(_amountController.text)!,
             color: Value(_selectedColor),
             icon: Value(_priority),
@@ -1161,5 +1279,113 @@ class _AddGoalSheetState
     final parsed = double.tryParse(cleaned);
     if (parsed == null || parsed <= 0) return null;
     return parsed;
+  }
+}
+
+class _ActionDot extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Color background;
+  final VoidCallback onTap;
+
+  const _ActionDot({
+    required this.icon,
+    required this.color,
+    required this.background,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 16),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+class _CircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _CircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.42),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 16, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _PreviewChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _PreviewChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
