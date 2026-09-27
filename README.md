@@ -164,5 +164,5 @@ flutter build apk --release
 
 ## License
 
-This project is currently unlicensed. Add a license file before distributing
-it.
+Released under the [MIT License](LICENSE). You can use, modify and ship it,
+including commercially, as long as you keep the copyright notice.
