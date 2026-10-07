@@ -75,6 +75,8 @@ class RecurringScreen extends ConsumerWidget {
                 16, 16, 16, 120),
             children: [
               if (active.isNotEmpty) ...[
+                _RecurringSummary(items: active),
+                const SizedBox(height: 20),
                 const Text('Active',
                     style: TextStyle(
                       color: AppColors.textPrimary,
@@ -124,6 +126,122 @@ class RecurringScreen extends ConsumerWidget {
   }
 }
 
+// ── Monthly summary ─────────────────────────────────────────────────────────────
+
+/// Projects active recurring items onto a monthly figure so the user can
+/// see the committed cost of their subscriptions at a glance.
+class _RecurringSummary extends StatelessWidget {
+  final List<RecurringWithDetails> items;
+  const _RecurringSummary({required this.items});
+
+  double _monthlyEquivalent(RecurringTransaction r) {
+    return switch (r.frequency) {
+      'daily' => r.amount * 30,
+      'weekly' => r.amount * 4.33,
+      'monthly' => r.amount,
+      _ => 0,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var income = 0.0;
+    var expense = 0.0;
+    for (final item in items) {
+      final r = item.recurring;
+      if (!r.isActive) continue;
+      final monthly = _monthlyEquivalent(r);
+      if (r.type == 'income') {
+        income += monthly;
+      } else {
+        expense += monthly;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: AppColors.bgSurface, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryBlock(
+              label: 'Monthly in',
+              value: Formatters.currencyCompact(income),
+              color: AppColors.income,
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 34,
+            color: AppColors.bgSurface,
+          ),
+          Expanded(
+            child: _SummaryBlock(
+              label: 'Monthly out',
+              value: Formatters.currencyCompact(expense),
+              color: AppColors.expense,
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 34,
+            color: AppColors.bgSurface,
+          ),
+          Expanded(
+            child: _SummaryBlock(
+              label: 'Left over',
+              value: Formatters.currencyCompact(income - expense),
+              color: income - expense >= 0
+                  ? AppColors.teal
+                  : AppColors.expense,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryBlock extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _SummaryBlock({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ── Recurring card ─────────────────────────────────────────────────────────────
 
 class _RecurringCard extends ConsumerWidget {
@@ -139,142 +257,129 @@ class _RecurringCard extends ConsumerWidget {
     final color = cat != null
         ? AppColors.fromHex(cat.color)
         : AppColors.textSecondary;
+    final active = r.isActive;
 
-    return GlowContainer(
-      glowColor:
-          r.isActive ? color : AppColors.bgSurface,
-      glowRadius: 8,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      color: AppColors.bgCard,
-      borderRadius: BorderRadius.circular(18),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: active
+              ? color.withValues(alpha: 0.30)
+              : AppColors.bgSurface,
+          width: 1,
+        ),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 
-                  r.isActive ? 0.15 : 0.05),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withValues(alpha: active ? 0.15 : 0.05),
+              borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(
-              Icons.repeat,
-              color: r.isActive
-                  ? color
-                  : AppColors.textHint,
-              size: 20,
+              categoryIconData(cat?.icon ?? ''),
+              color: active ? color : AppColors.textHint,
+              size: 21,
             ),
           ),
           const SizedBox(width: 12),
-
-          // Info
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   r.note ?? cat?.name ?? 'Recurring',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: r.isActive
+                    color: active
                         ? AppColors.textPrimary
                         : AppColors.textSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${cat?.name ?? ''} • ${_frequencyLabel(r)}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                if (wallet != null) ...[
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      _frequencyLabel(r),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (wallet != null) ...[
+                      const SizedBox(width: 6),
                       Icon(
                         _walletIcon(wallet.type),
                         size: 11,
-                        color: AppColors.fromHex(
-                            wallet.color),
+                        color: AppColors.textHint,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        wallet.name,
-                        style: TextStyle(
-                          color: AppColors.fromHex(
-                              wallet.color),
-                          fontSize: 11,
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          wallet.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textHint,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _DueChip(recurring: r),
               ],
             ),
           ),
-
-          // Amount + actions
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isIncome ? '+' : '-'}${Formatters.currencyCompact(r.amount)}',
+                '${isIncome ? '+' : '-'}${Formatters.currency(r.amount)}',
                 style: TextStyle(
-                  color: isIncome
-                      ? AppColors.income
-                      : AppColors.expense,
+                  color: active
+                      ? (isIncome
+                          ? AppColors.income
+                          : AppColors.expense)
+                      : AppColors.textHint,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
               Row(
                 children: [
-                  // Pause/Resume toggle
-                  GestureDetector(
-                    onTap: () {
-                      ref
-                          .read(recurringDaoProvider)
-                          .updateRecurring(r.copyWith(
-                              isActive: !r.isActive));
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: r.isActive
-                            ? AppColors.teal
-                                .withValues(alpha: 0.15)
-                            : AppColors.bgSurface,
-                        borderRadius:
-                            BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        r.isActive ? 'Active' : 'Paused',
-                        style: TextStyle(
-                          color: r.isActive
-                              ? AppColors.teal
-                              : AppColors.textHint,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                  _RoundAction(
+                    icon: active
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: active
+                        ? AppColors.textSecondary
+                        : AppColors.teal,
+                    tooltip: active ? 'Pause' : 'Resume',
+                    onTap: () => ref
+                        .read(recurringDaoProvider)
+                        .updateRecurring(
+                            r.copyWith(isActive: !active)),
                   ),
-                  const SizedBox(width: 6),
-                  // Delete
-                  GestureDetector(
-                    onTap: () =>
-                        _confirmDelete(context, ref, r.id),
-                    child: const Icon(
-                        Icons.delete_outline,
-                        size: 16,
-                        color: AppColors.textHint),
+                  const SizedBox(width: 8),
+                  _RoundAction(
+                    icon: Icons.delete_outline,
+                    color: AppColors.textHint,
+                    tooltip: 'Delete',
+                    onTap: () => _confirmDelete(context, ref, r.id),
                   ),
                 ],
               ),
@@ -287,7 +392,7 @@ class _RecurringCard extends ConsumerWidget {
 
   String _frequencyLabel(RecurringTransaction r) {
     return switch (r.frequency) {
-      'daily' => 'Every day',
+      'daily' => 'Daily',
       'weekly' =>
         'Every ${Formatters.weekdayName(r.dayOfWeek ?? 1)}',
       'monthly' =>
@@ -313,17 +418,14 @@ class _RecurringCard extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
         title: const Text('Delete recurring?',
-            style:
-                TextStyle(color: AppColors.textPrimary)),
+            style: TextStyle(color: AppColors.textPrimary)),
         content: const Text('This cannot be undone.',
-            style: TextStyle(
-                color: AppColors.textSecondary)),
+            style: TextStyle(color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -333,8 +435,177 @@ class _RecurringCard extends ConsumerWidget {
               Navigator.pop(ctx);
             },
             child: const Text('Delete',
-                style:
-                    TextStyle(color: AppColors.expense)),
+                style: TextStyle(color: AppColors.expense)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundAction extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _RoundAction({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppColors.bgSurface,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, size: 17, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+class _DueChip extends StatelessWidget {
+  final RecurringTransaction recurring;
+  const _DueChip({required this.recurring});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!recurring.isActive) {
+      return const _Chip(
+        icon: Icons.pause_rounded,
+        label: 'Paused',
+        color: AppColors.textHint,
+        background: AppColors.bgSurface,
+      );
+    }
+
+    final next = _RecurringNextRun.of(recurring);
+    if (next == null) {
+      return const _Chip(
+        icon: Icons.repeat,
+        label: 'Scheduled',
+        color: AppColors.textSecondary,
+        background: AppColors.bgSurface,
+      );
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final days = next.difference(today).inDays;
+
+    if (days <= 1) {
+      return _Chip(
+        icon: Icons.schedule,
+        label: days <= 0 ? 'Due today' : 'Due tomorrow',
+        color: AppColors.warning,
+        background: AppColors.warning.withValues(alpha: 0.14),
+      );
+    }
+    if (days <= 7) {
+      return _Chip(
+        icon: Icons.schedule,
+        label: 'In $days days',
+        color: AppColors.teal,
+        background: AppColors.teal.withValues(alpha: 0.14),
+      );
+    }
+    return _Chip(
+      icon: Icons.event_outlined,
+      label: 'On ${Formatters.dateShort(next)}',
+      color: AppColors.textSecondary,
+      background: AppColors.bgSurface,
+    );
+  }
+
+}
+
+class _RecurringNextRun {
+  /// The next date a recurring item is due, or null for an unknown
+  /// frequency. Advances from the last run (or start date), never before
+  /// today.
+  static DateTime? of(RecurringTransaction r) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start =
+        DateTime(r.startDate.year, r.startDate.month, r.startDate.day);
+
+    var earliest = start;
+    if (r.lastRunAt != null) {
+      final last = r.lastRunAt!;
+      earliest = DateTime(last.year, last.month, last.day)
+          .add(const Duration(days: 1));
+    }
+    if (earliest.isBefore(today)) earliest = today;
+
+    switch (r.frequency) {
+      case 'daily':
+        return earliest;
+      case 'weekly':
+        final target = r.dayOfWeek ?? start.weekday;
+        return earliest
+            .add(Duration(days: (target - earliest.weekday) % 7));
+      case 'monthly':
+        final target = r.dayOfMonth ?? start.day;
+        // Clamp so a 31st does not roll into a following shorter month.
+        final daysInMonth =
+            DateTime(earliest.year, earliest.month + 1, 0).day;
+        final day = target > daysInMonth ? daysInMonth : target;
+        var cursor = DateTime(earliest.year, earliest.month, day);
+        if (cursor.isBefore(earliest)) {
+          cursor =
+              DateTime(earliest.year, earliest.month + 1, day);
+        }
+        return cursor;
+      default:
+        return null;
+    }
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color background;
+  const _Chip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.background,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
