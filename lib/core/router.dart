@@ -414,12 +414,18 @@ class _NavTab extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           margin:
-              const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.teal.withValues(alpha: 0.14)
+                ? AppColors.teal.withValues(alpha: 0.18)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: selected
+                  ? AppColors.teal.withValues(alpha: 0.40)
+                  : Colors.transparent,
+              width: 1,
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
