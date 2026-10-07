@@ -410,16 +410,6 @@ class _WalletCard extends ConsumerWidget {
     ref.read(walletsDaoProvider).updateWallet(
           wallet.copyWith(isDefault: true),
         );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text(
-          '${wallet.name} set as default',
-          style:
-              const TextStyle(color: AppColors.textPrimary),
-        ),
-      ),
-    );
   }
 
   void _confirmDelete(

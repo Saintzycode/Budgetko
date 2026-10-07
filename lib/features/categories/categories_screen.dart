@@ -424,15 +424,6 @@ class _CategoryEditorState extends ConsumerState<_CategoryEditor> {
     }
     if (!mounted) return;
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text(
-          _isNew ? 'Category added' : 'Category updated',
-          style: const TextStyle(color: AppColors.textPrimary),
-        ),
-      ),
-    );
   }
 
   @override

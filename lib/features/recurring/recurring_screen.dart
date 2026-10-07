@@ -970,7 +970,6 @@ class _AddRecurringSheetState
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final messenger = ScaffoldMessenger.of(context);
     await ref.read(recurringDaoProvider).insertRecurring(
           RecurringTransactionsCompanion.insert(
             amount: double.parse(_amountController.text),
@@ -989,8 +988,7 @@ class _AddRecurringSheetState
           ),
         );
     if (!mounted) return;
-    final createdCount =
-        await ref.read(databaseProvider).processDueRecurring();
+    await ref.read(databaseProvider).processDueRecurring();
     if (!mounted) return;
     ref
       ..invalidate(allTransactionsProvider)
@@ -1002,22 +1000,6 @@ class _AddRecurringSheetState
       ..invalidate(spendingInsightsProvider)
       ..invalidate(categoryBudgetStatusProvider);
     Navigator.pop(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.bgCard,
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            createdCount == 0
-                ? 'Recurring transaction saved'
-                : createdCount == 1
-                    ? 'Recurring transaction added'
-                    : '$createdCount recurring transactions added',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
   }
 
   InputDecoration _dropdownDecoration({

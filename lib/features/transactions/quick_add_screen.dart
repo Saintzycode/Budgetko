@@ -756,7 +756,6 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
   }
 
   Future<void> _persist(String? note) async {
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     final now = DateTime.now();
     final category = _selectedCategory!;
@@ -800,33 +799,6 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
     invalidateTransactionAggregates(ref);
     HapticFeedback.mediumImpact();
     context.go(_origin);
-    messenger.showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Row(
-          children: [
-            Icon(
-              type == 'expense'
-                  ? Icons.arrow_upward
-                  : Icons.arrow_downward,
-              color: type == 'expense'
-                  ? AppColors.expense
-                  : AppColors.income,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${Formatters.currency(amount)} saved to ${category.name}',
-                style: const TextStyle(
-                    color: AppColors.textPrimary),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

@@ -526,15 +526,6 @@ class _GoalCard extends ConsumerWidget {
                     .read(savingsGoalsDaoProvider)
                     .addToGoal(goal.id, amount);
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(
-                  backgroundColor: AppColors.bgCard,
-                  content: Text(
-                    '${Formatters.currency(amount)} added!',
-                    style: const TextStyle(
-                        color: AppColors.textPrimary),
-                  ),
-                ));
               }
             },
             child: const Text('Add'),

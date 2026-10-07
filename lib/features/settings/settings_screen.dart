@@ -411,29 +411,9 @@ class SettingsScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
     final db = ref.read(databaseProvider);
-    messenger.showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text('Creating backup...',
-            style: TextStyle(color: AppColors.textPrimary)),
-      ),
-    );
     try {
-      final path =
-          await BackupService.instance.createBackup(db);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.bgCard,
-          duration: const Duration(seconds: 6),
-          content: Text(
-            'Backup saved to $path',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
+      await BackupService.instance.createBackup(db);
     } catch (e) {
-      messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.bgCard,
@@ -540,16 +520,8 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (confirmed != true) return;
 
-    messenger.showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text('Restoring...',
-            style: TextStyle(color: AppColors.textPrimary)),
-      ),
-    );
-
     try {
-      final count = await BackupService.instance
+      await BackupService.instance
           .restore(ref.read(databaseProvider), validation);
       if (!context.mounted) return;
       ref
@@ -568,18 +540,6 @@ class SettingsScreen extends ConsumerWidget {
         ..invalidate(monthlyIncomeProvider)
         ..invalidate(carryoverEnabledProvider)
         ..invalidate(notificationSettingsProvider);
-
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.bgCard,
-          duration: const Duration(seconds: 5),
-          content: Text(
-            'Restored $count records',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
@@ -633,16 +593,6 @@ class SettingsScreen extends ConsumerWidget {
       ref.invalidate(allGoalsProvider);
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(notificationsProvider);
-      if (!context.mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.bgCard,
-          content: Text(
-            'All data cleared',
-            style: TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
@@ -660,36 +610,12 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _exportExcel(
       BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text(
-          'Exporting transactions...',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-      ),
-    );
-
     try {
       final transactions = await ref
           .read(transactionsDaoProvider)
           .getAllTransactionsWithDetails();
-      final result =
-          await ExcelExporter().exportTransactions(transactions);
-
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.bgCard,
-          duration: const Duration(seconds: 6),
-          content: Text(
-            'Exported ${result.rowCount} transactions to ${result.path}',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
+      await ExcelExporter().exportTransactions(transactions);
     } catch (e) {
-      messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.bgCard,

@@ -427,14 +427,6 @@ class _TransactionCard extends ConsumerWidget {
             .deleteTransaction(t.id);
         invalidateTransactionAggregates(ref);
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          const SnackBar(
-            backgroundColor: AppColors.bgCard,
-            content: Text('Transaction deleted',
-                style:
-                    TextStyle(color: AppColors.textPrimary)),
-          ),
-        );
       },
       child: GestureDetector(
         onTap: () => showTransactionSheet(context, item),

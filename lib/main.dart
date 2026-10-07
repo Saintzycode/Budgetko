@@ -106,7 +106,7 @@ class _BudgetKoAppState extends ConsumerState<BudgetKoApp>
         ..invalidate(allRecurringProvider)
         ..invalidate(allWalletsProvider);
 
-      _showRecurringNotification(createdCount);
+      debugPrint('Recurring: added $createdCount transaction(s)');
     } catch (error, stackTrace) {
       debugPrint('Recurring processing failed: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -155,22 +155,5 @@ class _BudgetKoAppState extends ConsumerState<BudgetKoApp>
       theme: AppTheme.dark,
       routerConfig: appRouter,
     );
-  }
-
-  void _showRecurringNotification(int createdCount) {
-    scaffoldMessengerKey.currentState
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.bgCard,
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            createdCount == 1
-                ? 'Recurring transaction added'
-                : '$createdCount recurring transactions added',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-        ),
-      );
   }
 }

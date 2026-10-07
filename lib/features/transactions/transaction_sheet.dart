@@ -212,13 +212,6 @@ class _TransactionSheet extends ConsumerWidget {
     invalidateTransactionAggregates(ref);
     if (!context.mounted) return;
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text('Transaction deleted',
-            style: TextStyle(color: AppColors.textPrimary)),
-      ),
-    );
   }
 }
 
@@ -387,15 +380,6 @@ class _TransactionEditorState
     invalidateTransactionAggregates(ref);
     if (!mounted) return;
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.bgCard,
-        content: Text(
-          'Updated ${Formatters.currency(_amount)}',
-          style: const TextStyle(color: AppColors.textPrimary),
-        ),
-      ),
-    );
   }
 
   @override
