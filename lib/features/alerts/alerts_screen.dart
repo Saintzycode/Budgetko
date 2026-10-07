@@ -6,6 +6,7 @@ import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/category_icons.dart';
+import '../../../../core/widgets/text_prompt_dialog.dart';
 
 class AlertsScreen extends ConsumerWidget {
   const AlertsScreen({super.key});
@@ -285,68 +286,54 @@ class AlertsScreen extends ConsumerWidget {
     int catId,
     String catName,
     double? currentLimit,
-    ) async {
-    final controller = TextEditingController(
-      text: currentLimit?.toStringAsFixed(0) ?? '',
-    );
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: Text(
-          'Set limit for $catName',
-          style: const TextStyle(
-              color: AppColors.textPrimary),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType:
-              const TextInputType.numberWithOptions(
-                  decimal: true),
-          style: const TextStyle(
-              color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-            labelText: 'Monthly limit',
-            prefixText: '₱ ',
+  ) async {
+    if (currentLimit != null) {
+      final remove = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.bgCard,
+          title: Text(
+            'Limit for $catName',
+            style: const TextStyle(color: AppColors.textPrimary),
           ),
-          autofocus: true,
-        ),
-        actions: [
-          if (currentLimit != null)
+          content: Text(
+            'Remove the ${Formatters.currency(currentLimit)} monthly limit '
+            'for $catName?',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          actions: [
             TextButton(
-              onPressed: () {
-                ref
-                    .read(categoriesDaoProvider)
-                    .updateMonthlyLimit(catId, null);
-                Navigator.pop(ctx);
-              },
-              child: const Text('Remove',
-                  style: TextStyle(
-                      color: AppColors.expense)),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textSecondary)),
             ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final amount =
-                  double.tryParse(controller.text);
-              if (amount != null && amount > 0) {
-                ref
-                    .read(categoriesDaoProvider)
-                    .updateMonthlyLimit(catId, amount);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove',
+                  style: TextStyle(color: AppColors.expense)),
+            ),
+          ],
+        ),
+      );
+      if (remove != true) return;
+      await ref
+          .read(categoriesDaoProvider)
+          .updateMonthlyLimit(catId, null);
+      return;
+    }
+
+    final input = await TextPromptDialog.show(
+      context,
+      title: 'Set limit for $catName',
+      hintText: 'Monthly limit',
+      prefixText: '₱ ',
     );
-    controller.dispose();
+    if (input == null) return;
+    final amount = double.tryParse(input.replaceAll(',', '').trim());
+    if (amount == null || amount <= 0) return;
+    await ref
+        .read(categoriesDaoProvider)
+        .updateMonthlyLimit(catId, amount);
   }
 }
 

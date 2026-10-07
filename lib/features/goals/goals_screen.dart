@@ -12,6 +12,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/goal_progress.dart';
 import '../../../../core/widgets/confetti.dart';
+import '../../../../core/widgets/text_prompt_dialog.dart';
 import '../../../../core/widgets/savings_hud.dart';
 
 class GoalsScreen extends ConsumerWidget {
@@ -503,130 +504,51 @@ class _GoalCard extends ConsumerWidget {
     }
   }
 
-  void _showAddDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    final future = showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: Text('Add to "${goal.name}"',
-            style: const TextStyle(
-                color: AppColors.textPrimary)),
-        content: TextField(
-          controller: controller,
-          keyboardType:
-              const TextInputType.numberWithOptions(
-                  decimal: true),
-          style:
-              const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-              labelText: 'Amount', prefixText: '₱ '),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-              onPressed: () {
-                final amount =
-                    _parseAmount(controller.text);
-                if (amount != null && amount > 0) {
-                  // Check before writing so the celebration only fires
-                  // when this deposit is what tips the goal over.
-                  final willComplete = !goal.isCompleted &&
-                      goal.currentAmount + amount >=
-                          goal.targetAmount;
-                  // Resolve the overlay now, while this card's element is
-                  // still mounted. Funding a goal moves it out of the
-                  // Active section, which destroys this element, and
-                  // looking an InheritedWidget up from a deactivated
-                  // context is what trips the _dependents.isEmpty
-                  // assertion.
-                  final overlay = willComplete
-                      ? Overlay.maybeOf(context, rootOverlay: true)
-                      : null;
-                  ref
-                      .read(savingsGoalsDaoProvider)
-                      .addToGoal(goal.id, amount);
-                  Navigator.pop(ctx);
-                  if (overlay != null) {
-                    ConfettiOverlay.showIn(overlay);
-                  }
-                }
-              },
-              child: const Text('Add'),
-          ),
-        ],
-      ),
+  Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
+    final input = await TextPromptDialog.show(
+      context,
+      title: 'Add to "${goal.name}"',
+      hintText: 'Amount',
+      prefixText: '₱ ',
+      confirmLabel: 'Add',
     );
-    future.whenComplete(controller.dispose);
+    if (input == null || !context.mounted) return;
+    final amount = _parseAmount(input);
+    if (amount == null || amount <= 0) return;
+
+    // Check before writing so the celebration only fires when this
+    // deposit is what tips the goal over.
+    final willComplete = !goal.isCompleted &&
+        goal.currentAmount + amount >= goal.targetAmount;
+    // Resolve the overlay now, while this card's element is still
+    // mounted. Funding a goal moves it out of the Active section, which
+    // destroys this element, and looking an InheritedWidget up from a
+    // deactivated context trips the _dependents.isEmpty assertion.
+    final overlay = willComplete
+        ? Overlay.maybeOf(context, rootOverlay: true)
+        : null;
+    await ref.read(savingsGoalsDaoProvider).addToGoal(goal.id, amount);
+    if (overlay != null) {
+      ConfettiOverlay.showIn(overlay);
+    }
   }
 
-  void _showSubtractDialog(
-      BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    final future = showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: Text('Subtract from "${goal.name}"',
-            style: const TextStyle(
-                color: AppColors.textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Current: ${Formatters.currency(goal.currentAmount)}',
-              style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(
-                      decimal: true),
-              style: const TextStyle(
-                  color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                  labelText: 'Amount to subtract',
-                  prefixText: '₱ '),
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.expense),
-            onPressed: () {
-              final amount =
-                  _parseAmount(controller.text);
-              if (amount != null && amount > 0) {
-                ref
-                    .read(savingsGoalsDaoProvider)
-                    .subtractFromGoal(goal.id, amount);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Subtract'),
-          ),
-        ],
-      ),
+  Future<void> _showSubtractDialog(
+      BuildContext context, WidgetRef ref) async {
+    final input = await TextPromptDialog.show(
+      context,
+      title: 'Subtract from "${goal.name}"',
+      hintText: 'Amount to subtract',
+      prefixText: '₱ ',
+      confirmLabel: 'Subtract',
+      confirmBackground: AppColors.expense,
     );
-    future.whenComplete(controller.dispose);
+    if (input == null || !context.mounted) return;
+    final amount = _parseAmount(input);
+    if (amount == null || amount <= 0) return;
+    await ref
+        .read(savingsGoalsDaoProvider)
+        .subtractFromGoal(goal.id, amount);
   }
 
   void _confirmDelete(

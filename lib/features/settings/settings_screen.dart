@@ -4,6 +4,7 @@ import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/backup/backup_service.dart';
+import '../../../../core/widgets/text_prompt_dialog.dart';
 import '../export/export.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -306,105 +307,32 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showIncomeDialog(
-      BuildContext context, WidgetRef ref, double current) {
-    final controller = TextEditingController(
-      text: current > 0 ? current.toStringAsFixed(0) : '',
+  Future<void> _showIncomeDialog(
+      BuildContext context, WidgetRef ref, double current) async {
+    final input = await TextPromptDialog.show(
+      context,
+      title: 'Monthly income',
+      hintText: 'e.g. 25000',
+      prefixText: '₱ ',
     );
-    final future = showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: const Text('Monthly income',
-            style:
-                TextStyle(color: AppColors.textPrimary)),
-        content: TextField(
-          controller: controller,
-          keyboardType:
-              const TextInputType.numberWithOptions(
-                  decimal: true),
-          style: const TextStyle(
-              color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-            labelText: 'Amount',
-            prefixText: '₱ ',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final v = double.tryParse(controller.text);
-              if (v != null) {
-                ref
-                    .read(monthlyIncomeProvider.notifier)
-                    .setIncome(v);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    future.whenComplete(controller.dispose);
+    if (input == null) return;
+    final value = double.tryParse(input.replaceAll(',', '').trim());
+    if (value == null) return;
+    await ref.read(monthlyIncomeProvider.notifier).setIncome(value);
   }
 
-  void _showBudgetDialog(
-      BuildContext context, WidgetRef ref, double current) {
-    final controller = TextEditingController(
-      text: current > 0 ? current.toStringAsFixed(0) : '',
+  Future<void> _showBudgetDialog(
+      BuildContext context, WidgetRef ref, double current) async {
+    final input = await TextPromptDialog.show(
+      context,
+      title: 'Monthly budget',
+      hintText: 'e.g. 15000',
+      prefixText: '₱ ',
     );
-    final future = showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: const Text('Monthly budget',
-            style:
-                TextStyle(color: AppColors.textPrimary)),
-        content: TextField(
-          controller: controller,
-          keyboardType:
-              const TextInputType.numberWithOptions(
-                  decimal: true),
-          style: const TextStyle(
-              color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-            labelText: 'Amount',
-            prefixText: '₱ ',
-            hintText: 'e.g. 15000',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final v = double.tryParse(controller.text);
-              if (v != null && v > 0) {
-                ref
-                    .read(monthlyBudgetProvider.notifier)
-                    .setBudget(v);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    future.whenComplete(controller.dispose);
+    if (input == null) return;
+    final value = double.tryParse(input.replaceAll(',', '').trim());
+    if (value == null) return;
+    await ref.read(monthlyBudgetProvider.notifier).setBudget(value);
   }
 
   Future<void> _backupData(

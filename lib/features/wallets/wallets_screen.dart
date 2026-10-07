@@ -6,6 +6,7 @@ import '../../../../data/database/app_database.dart';
 import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/text_prompt_dialog.dart';
 
 class WalletsScreen extends ConsumerWidget {
   const WalletsScreen({super.key});
@@ -353,56 +354,21 @@ class _WalletCard extends ConsumerWidget {
     };
   }
 
-  void _showEditBalanceDialog(
-      BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController(
-      text: wallet.balance.toStringAsFixed(2),
+  Future<void> _showEditBalanceDialog(
+      BuildContext context, WidgetRef ref) async {
+    final input = await TextPromptDialog.show(
+      context,
+      title: 'Edit ${wallet.name} balance',
+      hintText: 'Balance',
+      prefixText: '₱ ',
+      initialValue: wallet.balance.toStringAsFixed(2),
     );
-    final future = showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: Text(
-          'Edit ${wallet.name} balance',
-          style: const TextStyle(
-              color: AppColors.textPrimary),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(
-              decimal: true),
-          style:
-              const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-            labelText: 'Balance',
-            prefixText: '₱ ',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final v =
-                  double.tryParse(controller.text);
-              if (v != null) {
-                ref
-                    .read(walletsDaoProvider)
-                    .updateBalance(wallet.id, v);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    future.whenComplete(controller.dispose);
+    if (input == null) return;
+    final value = double.tryParse(input.replaceAll(',', '').trim());
+    if (value == null) return;
+    await ref
+        .read(walletsDaoProvider)
+        .updateBalance(wallet.id, value);
   }
 
   void _setAsDefault(
