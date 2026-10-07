@@ -671,7 +671,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -700,10 +700,21 @@ class AppDatabase extends _$AppDatabase {
             );
           }
           if (from < 5) {
-            // Contribution ledger. Existing goals get no history, so
-            // their streak and XP start from the next deposit rather
-            // than being backdated from a total we cannot attribute.
             await m.createTable(goalContributions);
+          }
+          if (from < 6) {
+            // Backfill the ledger for goals that predate it. They already
+            // have a current amount but no contribution rows, so their
+            // XP read as zero despite real savings. One opening row per
+            // funded goal, dated at the goal's creation, restores a
+            // sensible total without inventing a fake streak, because a
+            // single row cannot form a multi week run.
+            await customStatement(
+              'INSERT INTO goal_contributions '
+              '(goal_id, amount, created_at) '
+              'SELECT id, current_amount, created_at FROM savings_goals '
+              'WHERE current_amount > 0',
+            );
           }
         },
       );
