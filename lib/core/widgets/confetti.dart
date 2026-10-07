@@ -107,14 +107,23 @@ class _ConfettiPainter extends CustomPainter {
 class ConfettiOverlay {
   const ConfettiOverlay._();
 
-  static void show(BuildContext context) {
-    final overlay = Overlay.maybeOf(context);
-    if (overlay == null) return;
+  /// Inserts a burst into an already resolved [overlay].
+  ///
+  /// Prefer this over the [BuildContext] overload when the widget may be
+  /// torn down by whatever triggered the celebration: looking up an
+  /// InheritedWidget from a deactivated context throws.
+  static void showIn(OverlayState overlay) {
     late final OverlayEntry entry;
     entry = OverlayEntry(
       builder: (_) => _ConfettiBurst(onDone: entry.remove),
     );
     overlay.insert(entry);
+  }
+
+  static void show(BuildContext context) {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) return;
+    showIn(overlay);
   }
 }
 

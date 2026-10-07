@@ -540,12 +540,21 @@ class _GoalCard extends ConsumerWidget {
                   final willComplete = !goal.isCompleted &&
                       goal.currentAmount + amount >=
                           goal.targetAmount;
+                  // Resolve the overlay now, while this card's element is
+                  // still mounted. Funding a goal moves it out of the
+                  // Active section, which destroys this element, and
+                  // looking an InheritedWidget up from a deactivated
+                  // context is what trips the _dependents.isEmpty
+                  // assertion.
+                  final overlay = willComplete
+                      ? Overlay.maybeOf(context, rootOverlay: true)
+                      : null;
                   ref
                       .read(savingsGoalsDaoProvider)
                       .addToGoal(goal.id, amount);
                   Navigator.pop(ctx);
-                  if (willComplete) {
-                    ConfettiOverlay.show(context);
+                  if (overlay != null) {
+                    ConfettiOverlay.showIn(overlay);
                   }
                 }
               },
