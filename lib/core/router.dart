@@ -134,21 +134,13 @@ class _AppShellState extends State<AppShell> {
         extendBody: true,
         body: Stack(
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: child,
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey(location),
-                child: widget.child,
-              ),
-            ),
+            // Deliberately not wrapped in an AnimatedSwitcher. Doing so
+            // builds the incoming Navigator while keeping the outgoing
+            // one alive for the transition, so two Navigator and Overlay
+            // subtrees exist at once and the outgoing one is torn down
+            // mid-flight, which strands InheritedWidget dependents and
+            // trips the _dependents.isEmpty assertion.
+            widget.child,
             if (isCurrent)
               Positioned(
                 left: 0,
