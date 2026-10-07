@@ -86,32 +86,53 @@ class SavingsStats {
   );
 }
 
-/// XP earned, where every peso deposited is one point.
-int savingsXp(double totalDeposited) =>
-    totalDeposited <= 0 ? 0 : totalDeposited.floor();
+/// Peso needed per point of XP. Every hundred pesos deposited is one XP.
+const double kXpPerPeso = 100;
+
+/// Highest level the ladder will count to. Cumulative XP grows with the
+/// square of the level, so this only guards against a corrupt total
+/// looping forever.
+const int kMaxLevel = 60;
+
+/// XP earned on everything ever deposited.
+///
+/// Deliberately not one per peso: at that rate a square root curve put
+/// level 10 within reach of saving eighty pesos, which made the whole
+/// ladder meaningless. One XP per hundred pesos puts Master at roughly
+/// forty five thousand saved, which takes real commitment.
+int savingsXp(double totalDeposited) {
+  if (totalDeposited <= 0) return 0;
+  return (totalDeposited / kXpPerPeso).floor();
+}
+
+/// Total XP required to have reached [level].
+///
+/// Cumulative XP for level n is 5n(n-1), giving 0, 10, 30, 60, 100,
+/// 150... so each level costs 10 more XP than the last: ten pesos a
+/// hundred to reach Starter, rising to a hundred pesos a hundred to push
+/// past Master.
+int savingsXpForLevel(int level) {
+  final n = level <= 1 ? 1 : level;
+  return 5 * n * (n - 1);
+}
+
+/// XP still needed to get from [level] to the next one.
+int savingsXpForNextLevel(int level) =>
+    10 * (level <= 1 ? 1 : level);
 
 /// Level for a given XP total.
-///
-/// Uses a square root curve so early levels come quickly and later ones
-/// take real saving: level n needs (n-1)^2 XP, giving 1, 4, 9, 16...
 int savingsLevel(int xp) {
   if (xp <= 0) return 1;
   var level = 1;
-  while (xp >= level * level) {
+  while (level < kMaxLevel &&
+      xp >= savingsXpForLevel(level + 1)) {
     level++;
   }
   return level;
 }
 
-/// XP at the start of a level, for drawing the progress bar.
-int savingsXpAtLevelStart(int level) =>
-    level <= 1 ? 0 : (level - 1) * (level - 1);
-
-/// XP needed to get from this level to the next.
-int savingsXpForNextLevel(int level) {
-  if (level <= 1) return 1;
-  return (level * level) - ((level - 1) * (level - 1));
-}
+/// XP already earned towards the next level, for drawing the progress bar.
+int savingsXpAtLevelStart(int level) => savingsXpForLevel(level);
 
 /// Progress through the current level, 0 to 1.
 double savingsLevelProgress(int xp) {
@@ -119,11 +140,11 @@ double savingsLevelProgress(int xp) {
   final start = savingsXpAtLevelStart(level);
   final needed = savingsXpForNextLevel(level);
   if (needed <= 0) return 1;
-  final into = xp - start;
-  return (into / needed).clamp(0.0, 1.0);
+  return ((xp - start) / needed).clamp(0.0, 1.0);
 }
 
-/// Title shown against a level.
+/// Title shown against a level. Master now needs roughly forty five
+/// thousand pesos deposited to reach.
 String savingsLevelTitle(int level) {
   if (level >= 10) return 'Master';
   if (level >= 8) return 'Champion';

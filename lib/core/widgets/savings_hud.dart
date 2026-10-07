@@ -77,12 +77,17 @@ class SavingsHud extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '${_compact(xp.toDouble())} XP  ·  '
-                      '${_compact((nextAt - xp).toDouble())} to level ${level + 1}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
+                    Tooltip(
+                      message: 'Every ${Formatters.currency(
+                        kXpPerPeso,
+                      )} deposited earns 1 XP',
+                      child: Text(
+                        '${_compact(xp.toDouble())} XP  ·  '
+                        '${_compact((nextAt - xp).toDouble())} to level ${level + 1}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
