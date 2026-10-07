@@ -213,8 +213,6 @@ class _GoalCard extends ConsumerWidget {
                         width: double.infinity,
                         height: 104,
                         fit: BoxFit.cover,
-                        cacheWidth: 800,
-                        cacheHeight: 220,
                         errorBuilder: (_, __, ___) =>
                             const SizedBox(
                               height: 104, width: double.infinity),
@@ -1000,8 +998,6 @@ class _AddGoalSheetState
               Image.file(
                 File(path),
                 fit: BoxFit.cover,
-                cacheWidth: 800,
-                cacheHeight: 360,
                 errorBuilder: (_, __, ___) =>
                     const SizedBox.shrink(),
               ),

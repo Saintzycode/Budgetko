@@ -1468,8 +1468,6 @@ class _GoalCard extends StatelessWidget {
                 height: 110,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                cacheWidth: 800,
-                cacheHeight: 240,
                 errorBuilder: (_, __, ___) =>
                     const SizedBox.shrink(),
               ),
