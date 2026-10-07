@@ -11,6 +11,8 @@ import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/goal_progress.dart';
+import '../../../../core/widgets/confetti.dart';
+import '../../../../core/widgets/savings_hud.dart';
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -18,6 +20,7 @@ class GoalsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goalsAsync = ref.watch(allGoalsProvider);
+    final statsAsync = ref.watch(savingsStatsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -73,6 +76,14 @@ class GoalsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(
                 16, 16, 16, 120),
             children: [
+              statsAsync.when(
+                data: (stats) => Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: SavingsHud(stats: stats),
+                ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
               if (active.isNotEmpty) ...[
                 const Text('Active',
                     style: TextStyle(
@@ -385,6 +396,8 @@ class _GoalCard extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(height: 10),
+            MilestonePips(progress: progress, color: color),
           ],
         ),
       ),
@@ -518,17 +531,25 @@ class _GoalCard extends ConsumerWidget {
                     color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            onPressed: () {
-              final amount =
-                  _parseAmount(controller.text);
-              if (amount != null && amount > 0) {
-                ref
-                    .read(savingsGoalsDaoProvider)
-                    .addToGoal(goal.id, amount);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Add'),
+              onPressed: () {
+                final amount =
+                    _parseAmount(controller.text);
+                if (amount != null && amount > 0) {
+                  // Check before writing so the celebration only fires
+                  // when this deposit is what tips the goal over.
+                  final willComplete = !goal.isCompleted &&
+                      goal.currentAmount + amount >=
+                          goal.targetAmount;
+                  ref
+                      .read(savingsGoalsDaoProvider)
+                      .addToGoal(goal.id, amount);
+                  Navigator.pop(ctx);
+                  if (willComplete) {
+                    ConfettiOverlay.show(context);
+                  }
+                }
+              },
+              child: const Text('Add'),
           ),
         ],
       ),

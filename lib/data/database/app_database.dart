@@ -85,6 +85,16 @@ class RecurringTransactions extends Table {
       dateTime().withDefault(currentDateAndTime)();
 }
 
+class GoalContributions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get goalId =>
+      integer().references(SavingsGoals, #id)();
+  RealColumn get amount =>
+      real()(); // positive for a deposit, negative for a withdrawal
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}
+
 class AppNotifications extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text().withLength(min: 1, max: 120)();
@@ -389,7 +399,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Future<int> deleteAllTransactions() => delete(transactions).go();
 }
 
-@DriftAccessor(tables: [SavingsGoals])
+@DriftAccessor(tables: [SavingsGoals, GoalContributions])
 class SavingsGoalsDao extends DatabaseAccessor<AppDatabase>
     with _$SavingsGoalsDaoMixin {
   SavingsGoalsDao(super.db);
@@ -423,6 +433,14 @@ class SavingsGoalsDao extends DatabaseAccessor<AppDatabase>
         isCompleted: Value(newAmount >= goal.targetAmount),
       ),
     );
+    // The ledger is what makes streaks and XP possible, so a deposit
+    // that is later withdrawn still counts towards having shown up.
+    await into(goalContributions).insert(
+      GoalContributionsCompanion.insert(
+        goalId: id,
+        amount: amount,
+      ),
+    );
   }
 
   Future<void> subtractFromGoal(int id, double amount) async {
@@ -438,12 +456,25 @@ class SavingsGoalsDao extends DatabaseAccessor<AppDatabase>
         isCompleted: Value(newAmount >= goal.targetAmount),
       ),
     );
+    await into(goalContributions).insert(
+      GoalContributionsCompanion.insert(goalId: id, amount: -amount),
+    );
   }
 
   Future<int> deleteGoal(int id) =>
       (delete(savingsGoals)..where((g) => g.id.equals(id))).go();
 
   Future<List<SavingsGoal>> getAllGoals() => select(savingsGoals).get();
+
+  /// Contribution ledger, newest first, across every goal. Feeds the
+  /// savings streak and XP calculations.
+  Stream<List<GoalContribution>> watchContributions() {
+    return (select(goalContributions)
+          ..orderBy([(c) => OrderingTerm.desc(c.createdAt)]))
+        .watch();
+  }
+
+  Future<void> deleteAllContributions() => delete(goalContributions).go();
 
   Future<int> deleteAllGoals() => delete(savingsGoals).go();
 }
@@ -623,9 +654,10 @@ class NotificationsDao extends DatabaseAccessor<AppDatabase>
     Categories,
     Transactions,
     SavingsGoals,
-    RecurringTransactions,
-    AppNotifications,
-  ],
+      RecurringTransactions,
+      AppNotifications,
+      GoalContributions,
+    ],
   daos: [
     WalletsDao,
     TransactionsDao,
@@ -639,7 +671,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -667,6 +699,12 @@ class AppDatabase extends _$AppDatabase {
               "ELSE 'medium' END",
             );
           }
+          if (from < 5) {
+            // Contribution ledger. Existing goals get no history, so
+            // their streak and XP start from the next deposit rather
+            // than being backdated from a total we cannot attribute.
+            await m.createTable(goalContributions);
+          }
         },
       );
 
@@ -679,6 +717,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(transactions).go();
       await delete(savingsGoals).go();
       await delete(recurringTransactions).go();
+      await delete(goalContributions).go();
       await delete(appNotifications).go();
     });
   }

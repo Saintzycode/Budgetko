@@ -9,6 +9,7 @@ import '../../core/notifications/notification_service.dart';
 import '../../core/notifications/notification_triggers.dart';
 import '../../core/insights/spending_insights.dart';
 import '../../core/budget/budget_status.dart';
+import '../../core/gamification/savings_stats.dart';
 
 // ── Database singleton ─────────────────────────────────────────────────────────
 
@@ -160,6 +161,29 @@ final activeGoalsProvider = StreamProvider<List<SavingsGoal>>((ref) {
 
 final allGoalsProvider = StreamProvider<List<SavingsGoal>>((ref) {
   return ref.watch(savingsGoalsDaoProvider).watchAllGoals();
+});
+
+final goalContributionsProvider =
+    StreamProvider<List<GoalContribution>>((ref) {
+  return ref.watch(savingsGoalsDaoProvider).watchContributions();
+});
+
+/// Streak and XP progression across every goal. Recomputed from the
+/// ledger whenever a contribution or a goal total changes.
+final savingsStatsProvider = FutureProvider<SavingsStats>((ref) async {
+  final goals = await ref.watch(allGoalsProvider.future);
+  final rows = await ref.watch(goalContributionsProvider.future);
+  var totalSaved = 0.0;
+  for (final g in goals) {
+    totalSaved += g.currentAmount;
+  }
+  return buildSavingsStats(
+    contributions: [
+      for (final c in rows)
+        Contribution(goalId: c.goalId, amount: c.amount, at: c.createdAt),
+    ],
+    totalSaved: totalSaved,
+  );
 });
 
 // ── Categories streams ─────────────────────────────────────────────────────────
