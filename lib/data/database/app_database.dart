@@ -57,6 +57,8 @@ class SavingsGoals extends Table {
       text().withDefault(const Constant('#1D9E75'))();
   TextColumn get icon =>
       text().withDefault(const Constant('savings'))();
+  TextColumn get priority =>
+      text().withDefault(const Constant('medium'))();
   TextColumn get imagePath => text().nullable()();
   BoolColumn get isCompleted =>
       boolean().withDefault(const Constant(false))();
@@ -637,7 +639,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -653,6 +655,17 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 3) {
             await m.createTable(appNotifications);
+          }
+          if (from < 4) {
+            await m.addColumn(
+                savingsGoals, savingsGoals.priority);
+            // Existing rows wrote the priority into the icon column; move
+            // it across so it survives the column split.
+            await customUpdate(
+              'UPDATE savings_goals SET priority = CASE '
+              "WHEN icon IN ('low','medium','high') THEN icon "
+              "ELSE 'medium' END",
+            );
           }
         },
       );

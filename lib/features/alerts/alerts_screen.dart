@@ -279,17 +279,17 @@ class AlertsScreen extends ConsumerWidget {
 
   IconData _categoryIcon(String icon) => categoryIconData(icon);
 
-  void _showLimitDialog(
+  Future<void> _showLimitDialog(
     BuildContext context,
     WidgetRef ref,
     int catId,
     String catName,
     double? currentLimit,
-  ) {
+    ) async {
     final controller = TextEditingController(
       text: currentLimit?.toStringAsFixed(0) ?? '',
     );
-    showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -346,6 +346,7 @@ class AlertsScreen extends ConsumerWidget {
         ],
       ),
     );
+    controller.dispose();
   }
 }
 

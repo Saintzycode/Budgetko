@@ -1444,8 +1444,9 @@ class _GoalCard extends StatelessWidget {
         (goal.targetAmount - goal.currentAmount).clamp(0.0, double.infinity);
     final color = AppColors.fromHex(goal.color);
     final imagePath = goal.imagePath;
-    final hasImage =
-        imagePath != null && File(imagePath).existsSync();
+    // Trust the stored path; Image's errorBuilder handles a missing file,
+    // so there is no synchronous disk check on the build path.
+    final hasImage = imagePath != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1467,6 +1468,10 @@ class _GoalCard extends StatelessWidget {
                 height: 110,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                cacheWidth: 800,
+                cacheHeight: 240,
+                errorBuilder: (_, __, ___) =>
+                    const SizedBox.shrink(),
               ),
             ),
             const SizedBox(height: 10),
@@ -1599,6 +1604,8 @@ class _TransactionTile extends StatelessWidget {
               children: [
                 Text(
                   t.note ?? cat?.name ?? 'Transaction',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
@@ -1606,7 +1613,9 @@ class _TransactionTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${cat?.name ?? ''} • ${Formatters.relativeDate(t.date)}',
+                   '${cat?.name ?? ''} • ${Formatters.relativeDate(t.date)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,

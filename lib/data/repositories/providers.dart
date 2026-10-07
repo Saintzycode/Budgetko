@@ -125,6 +125,10 @@ final allTransactionsProvider =
 });
 
 final monthlyTotalsProvider = FutureProvider<MonthlyTotals>((ref) {
+  // Recompute whenever the transaction stream emits, not just when an
+  // aggregate is invalidated. Without this a write made outside the
+  // invalidation helper leaves these stale.
+  ref.watch(allTransactionsProvider);
   final dao = ref.watch(transactionsDaoProvider);
   final month = ref.watch(selectedMonthProvider);
   final walletId = ref.watch(selectedWalletProvider);
@@ -133,6 +137,7 @@ final monthlyTotalsProvider = FutureProvider<MonthlyTotals>((ref) {
 
 final spendingByCategoryProvider =
     FutureProvider<Map<int, double>>((ref) {
+  ref.watch(allTransactionsProvider);
   final dao = ref.watch(transactionsDaoProvider);
   final month = ref.watch(selectedMonthProvider);
   final walletId = ref.watch(selectedWalletProvider);
@@ -141,6 +146,7 @@ final spendingByCategoryProvider =
 
 final last6MonthsProvider =
     FutureProvider<List<MonthlyTotals>>((ref) {
+  ref.watch(allTransactionsProvider);
   return ref
       .watch(transactionsDaoProvider)
       .getLast6MonthsTotals();
@@ -421,6 +427,10 @@ final unreadNotificationsProvider = Provider<int>((ref) {
 
 final spendingInsightsProvider =
     FutureProvider<SpendingInsights>((ref) async {
+  // Depend on the transaction stream and category stream, not just the
+  // aggregates, so this recomputes when either changes.
+  ref.watch(allTransactionsProvider);
+  final categoriesAsync = ref.watch(categoriesProvider);
   final dao = ref.watch(transactionsDaoProvider);
   final month = ref.watch(selectedMonthProvider);
   final walletId = ref.watch(selectedWalletProvider);
@@ -439,7 +449,7 @@ final spendingInsightsProvider =
   final byWeekday = await dao.getSpendingByDayOfWeek(
       month,
       walletId: walletId);
-  final categories =
+  final categories = categoriesAsync.valueOrNull ??
       await ref.watch(categoriesDaoProvider).getAllCategories();
 
   return buildSpendingInsights(

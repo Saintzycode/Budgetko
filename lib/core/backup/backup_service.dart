@@ -116,6 +116,7 @@ class BackupService {
             'deadline': g.deadline?.toIso8601String(),
             'color': g.color,
             'icon': g.icon,
+            'priority': g.priority,
             'isCompleted': g.isCompleted,
             'createdAt': g.createdAt.toIso8601String(),
           }
@@ -449,6 +450,17 @@ class BackupService {
             deadline: Value(_dateOrNull(g, 'deadline')),
             color: Value(_string(g, 'color')),
             icon: Value(_string(g, 'icon')),
+            // Priority moved to its own column in schema 4; older
+            // backups stored it inside icon, so fall back to that and
+            // finally to a sensible default.
+            priority: Value(g['priority'] is String &&
+                    (g['priority'] as String).isNotEmpty
+                ? g['priority'] as String
+                : (g['icon'] is String &&
+                        ['low', 'medium', 'high']
+                            .contains(g['icon'])
+                    ? g['icon'] as String
+                    : 'medium')),
             // Local image files do not survive an app reinstall, so the
             // path is intentionally dropped rather than left dangling.
             imagePath: const Value(null),

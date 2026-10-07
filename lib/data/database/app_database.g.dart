@@ -1352,6 +1352,14 @@ class $SavingsGoalsTable extends SavingsGoals
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('savings'));
+  static const VerificationMeta _priorityMeta =
+      const VerificationMeta('priority');
+  @override
+  late final GeneratedColumn<String> priority = GeneratedColumn<String>(
+      'priority', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('medium'));
   static const VerificationMeta _imagePathMeta =
       const VerificationMeta('imagePath');
   @override
@@ -1385,6 +1393,7 @@ class $SavingsGoalsTable extends SavingsGoals
         deadline,
         color,
         icon,
+        priority,
         imagePath,
         isCompleted,
         createdAt
@@ -1434,6 +1443,10 @@ class $SavingsGoalsTable extends SavingsGoals
       context.handle(
           _iconMeta, icon.isAcceptableOrUnknown(data['icon']!, _iconMeta));
     }
+    if (data.containsKey('priority')) {
+      context.handle(_priorityMeta,
+          priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta));
+    }
     if (data.containsKey('image_path')) {
       context.handle(_imagePathMeta,
           imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta));
@@ -1471,6 +1484,8 @@ class $SavingsGoalsTable extends SavingsGoals
           .read(DriftSqlType.string, data['${effectivePrefix}color'])!,
       icon: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}icon'])!,
+      priority: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}priority'])!,
       imagePath: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}image_path']),
       isCompleted: attachedDatabase.typeMapping
@@ -1494,6 +1509,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
   final DateTime? deadline;
   final String color;
   final String icon;
+  final String priority;
   final String? imagePath;
   final bool isCompleted;
   final DateTime createdAt;
@@ -1505,6 +1521,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       this.deadline,
       required this.color,
       required this.icon,
+      required this.priority,
       this.imagePath,
       required this.isCompleted,
       required this.createdAt});
@@ -1520,6 +1537,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     }
     map['color'] = Variable<String>(color);
     map['icon'] = Variable<String>(icon);
+    map['priority'] = Variable<String>(priority);
     if (!nullToAbsent || imagePath != null) {
       map['image_path'] = Variable<String>(imagePath);
     }
@@ -1539,6 +1557,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           : Value(deadline),
       color: Value(color),
       icon: Value(icon),
+      priority: Value(priority),
       imagePath: imagePath == null && nullToAbsent
           ? const Value.absent()
           : Value(imagePath),
@@ -1558,6 +1577,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       deadline: serializer.fromJson<DateTime?>(json['deadline']),
       color: serializer.fromJson<String>(json['color']),
       icon: serializer.fromJson<String>(json['icon']),
+      priority: serializer.fromJson<String>(json['priority']),
       imagePath: serializer.fromJson<String?>(json['imagePath']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1574,6 +1594,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       'deadline': serializer.toJson<DateTime?>(deadline),
       'color': serializer.toJson<String>(color),
       'icon': serializer.toJson<String>(icon),
+      'priority': serializer.toJson<String>(priority),
       'imagePath': serializer.toJson<String?>(imagePath),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1588,6 +1609,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           Value<DateTime?> deadline = const Value.absent(),
           String? color,
           String? icon,
+          String? priority,
           Value<String?> imagePath = const Value.absent(),
           bool? isCompleted,
           DateTime? createdAt}) =>
@@ -1599,6 +1621,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
         deadline: deadline.present ? deadline.value : this.deadline,
         color: color ?? this.color,
         icon: icon ?? this.icon,
+        priority: priority ?? this.priority,
         imagePath: imagePath.present ? imagePath.value : this.imagePath,
         isCompleted: isCompleted ?? this.isCompleted,
         createdAt: createdAt ?? this.createdAt,
@@ -1616,6 +1639,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
       deadline: data.deadline.present ? data.deadline.value : this.deadline,
       color: data.color.present ? data.color.value : this.color,
       icon: data.icon.present ? data.icon.value : this.icon,
+      priority: data.priority.present ? data.priority.value : this.priority,
       imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
       isCompleted:
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
@@ -1633,6 +1657,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           ..write('deadline: $deadline, ')
           ..write('color: $color, ')
           ..write('icon: $icon, ')
+          ..write('priority: $priority, ')
           ..write('imagePath: $imagePath, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('createdAt: $createdAt')
@@ -1642,7 +1667,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
 
   @override
   int get hashCode => Object.hash(id, name, targetAmount, currentAmount,
-      deadline, color, icon, imagePath, isCompleted, createdAt);
+      deadline, color, icon, priority, imagePath, isCompleted, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1654,6 +1679,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
           other.deadline == this.deadline &&
           other.color == this.color &&
           other.icon == this.icon &&
+          other.priority == this.priority &&
           other.imagePath == this.imagePath &&
           other.isCompleted == this.isCompleted &&
           other.createdAt == this.createdAt);
@@ -1667,6 +1693,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
   final Value<DateTime?> deadline;
   final Value<String> color;
   final Value<String> icon;
+  final Value<String> priority;
   final Value<String?> imagePath;
   final Value<bool> isCompleted;
   final Value<DateTime> createdAt;
@@ -1678,6 +1705,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     this.deadline = const Value.absent(),
     this.color = const Value.absent(),
     this.icon = const Value.absent(),
+    this.priority = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1690,6 +1718,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     this.deadline = const Value.absent(),
     this.color = const Value.absent(),
     this.icon = const Value.absent(),
+    this.priority = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1703,6 +1732,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     Expression<DateTime>? deadline,
     Expression<String>? color,
     Expression<String>? icon,
+    Expression<String>? priority,
     Expression<String>? imagePath,
     Expression<bool>? isCompleted,
     Expression<DateTime>? createdAt,
@@ -1715,6 +1745,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       if (deadline != null) 'deadline': deadline,
       if (color != null) 'color': color,
       if (icon != null) 'icon': icon,
+      if (priority != null) 'priority': priority,
       if (imagePath != null) 'image_path': imagePath,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (createdAt != null) 'created_at': createdAt,
@@ -1729,6 +1760,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       Value<DateTime?>? deadline,
       Value<String>? color,
       Value<String>? icon,
+      Value<String>? priority,
       Value<String?>? imagePath,
       Value<bool>? isCompleted,
       Value<DateTime>? createdAt}) {
@@ -1740,6 +1772,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       deadline: deadline ?? this.deadline,
       color: color ?? this.color,
       icon: icon ?? this.icon,
+      priority: priority ?? this.priority,
       imagePath: imagePath ?? this.imagePath,
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
@@ -1770,6 +1803,9 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
     if (icon.present) {
       map['icon'] = Variable<String>(icon.value);
     }
+    if (priority.present) {
+      map['priority'] = Variable<String>(priority.value);
+    }
     if (imagePath.present) {
       map['image_path'] = Variable<String>(imagePath.value);
     }
@@ -1792,6 +1828,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
           ..write('deadline: $deadline, ')
           ..write('color: $color, ')
           ..write('icon: $icon, ')
+          ..write('priority: $priority, ')
           ..write('imagePath: $imagePath, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('createdAt: $createdAt')
@@ -3986,6 +4023,7 @@ typedef $$SavingsGoalsTableCreateCompanionBuilder = SavingsGoalsCompanion
   Value<DateTime?> deadline,
   Value<String> color,
   Value<String> icon,
+  Value<String> priority,
   Value<String?> imagePath,
   Value<bool> isCompleted,
   Value<DateTime> createdAt,
@@ -3999,6 +4037,7 @@ typedef $$SavingsGoalsTableUpdateCompanionBuilder = SavingsGoalsCompanion
   Value<DateTime?> deadline,
   Value<String> color,
   Value<String> icon,
+  Value<String> priority,
   Value<String?> imagePath,
   Value<bool> isCompleted,
   Value<DateTime> createdAt,
@@ -4033,6 +4072,9 @@ class $$SavingsGoalsTableFilterComposer
 
   ColumnFilters<String> get icon => $composableBuilder(
       column: $table.icon, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get priority => $composableBuilder(
+      column: $table.priority, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get imagePath => $composableBuilder(
       column: $table.imagePath, builder: (column) => ColumnFilters(column));
@@ -4076,6 +4118,9 @@ class $$SavingsGoalsTableOrderingComposer
   ColumnOrderings<String> get icon => $composableBuilder(
       column: $table.icon, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get priority => $composableBuilder(
+      column: $table.priority, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get imagePath => $composableBuilder(
       column: $table.imagePath, builder: (column) => ColumnOrderings(column));
 
@@ -4115,6 +4160,9 @@ class $$SavingsGoalsTableAnnotationComposer
 
   GeneratedColumn<String> get icon =>
       $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
 
   GeneratedColumn<String> get imagePath =>
       $composableBuilder(column: $table.imagePath, builder: (column) => column);
@@ -4159,6 +4207,7 @@ class $$SavingsGoalsTableTableManager extends RootTableManager<
             Value<DateTime?> deadline = const Value.absent(),
             Value<String> color = const Value.absent(),
             Value<String> icon = const Value.absent(),
+            Value<String> priority = const Value.absent(),
             Value<String?> imagePath = const Value.absent(),
             Value<bool> isCompleted = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -4171,6 +4220,7 @@ class $$SavingsGoalsTableTableManager extends RootTableManager<
             deadline: deadline,
             color: color,
             icon: icon,
+            priority: priority,
             imagePath: imagePath,
             isCompleted: isCompleted,
             createdAt: createdAt,
@@ -4183,6 +4233,7 @@ class $$SavingsGoalsTableTableManager extends RootTableManager<
             Value<DateTime?> deadline = const Value.absent(),
             Value<String> color = const Value.absent(),
             Value<String> icon = const Value.absent(),
+            Value<String> priority = const Value.absent(),
             Value<String?> imagePath = const Value.absent(),
             Value<bool> isCompleted = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -4195,6 +4246,7 @@ class $$SavingsGoalsTableTableManager extends RootTableManager<
             deadline: deadline,
             color: color,
             icon: icon,
+            priority: priority,
             imagePath: imagePath,
             isCompleted: isCompleted,
             createdAt: createdAt,

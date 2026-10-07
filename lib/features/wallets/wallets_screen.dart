@@ -195,12 +195,16 @@ class _WalletCard extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          wallet.name,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                        Flexible(
+                          child: Text(
+                            wallet.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         if (wallet.isDefault) ...[
@@ -354,7 +358,7 @@ class _WalletCard extends ConsumerWidget {
     final controller = TextEditingController(
       text: wallet.balance.toStringAsFixed(2),
     );
-    showDialog(
+    final future = showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -398,6 +402,7 @@ class _WalletCard extends ConsumerWidget {
         ],
       ),
     );
+    future.whenComplete(controller.dispose);
   }
 
   void _setAsDefault(
@@ -521,7 +526,7 @@ class _AddWalletSheetState
         16,
         16,
         16,
-        MediaQuery.of(context).viewInsets.bottom + 16,
+        MediaQuery.viewInsetsOf(context).bottom + 16,
       ),
       child: Form(
         key: _formKey,

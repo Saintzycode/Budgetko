@@ -64,10 +64,10 @@ class GoalsScreen extends ConsumerWidget {
 
           final active = goals.where((g) => !g.isCompleted).toList()
             ..sort((a, b) =>
-                _priorityRank(b.icon).compareTo(_priorityRank(a.icon)));
+                _priorityRank(b.priority).compareTo(_priorityRank(a.priority)));
           final completed = goals.where((g) => g.isCompleted).toList()
             ..sort((a, b) =>
-                _priorityRank(b.icon).compareTo(_priorityRank(a.icon)));
+                _priorityRank(b.priority).compareTo(_priorityRank(a.priority)));
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(
@@ -176,10 +176,13 @@ class _GoalCard extends ConsumerWidget {
     final remaining = (goal.targetAmount - goal.currentAmount)
         .clamp(0.0, double.infinity);
     final color = AppColors.fromHex(goal.color);
-    final priorityColor = _priorityColor(goal.icon);
+    final priorityColor = _priorityColor(goal.priority);
     final isComplete = progress >= 1.0;
     final path = goal.imagePath;
-    final hasImage = path != null && File(path).existsSync();
+    // The stored path is authoritative; an error from a missing file is
+    // handled by Image's own errorBuilder, so there is no synchronous
+    // disk check in build().
+    final hasImage = path != null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -210,6 +213,11 @@ class _GoalCard extends ConsumerWidget {
                         width: double.infinity,
                         height: 104,
                         fit: BoxFit.cover,
+                        cacheWidth: 800,
+                        cacheHeight: 220,
+                        errorBuilder: (_, __, ___) =>
+                            const SizedBox(
+                              height: 104, width: double.infinity),
                       ),
                       Positioned(
                         right: 8,
@@ -274,7 +282,7 @@ class _GoalCard extends ConsumerWidget {
                                     BorderRadius.circular(8),
                               ),
                               child: Text(
-                                _priorityLabel(goal.icon),
+                                _priorityLabel(goal.priority),
                                 style: TextStyle(
                                   color: priorityColor,
                                   fontSize: 10,
@@ -486,7 +494,7 @@ class _GoalCard extends ConsumerWidget {
 
   void _showAddDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
-    showDialog(
+    final future = showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -536,12 +544,13 @@ class _GoalCard extends ConsumerWidget {
         ],
       ),
     );
+    future.whenComplete(controller.dispose);
   }
 
   void _showSubtractDialog(
       BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
-    showDialog(
+    final future = showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -598,6 +607,7 @@ class _GoalCard extends ConsumerWidget {
         ],
       ),
     );
+    future.whenComplete(controller.dispose);
   }
 
   void _confirmDelete(
@@ -675,11 +685,11 @@ class _GoalCard extends ConsumerWidget {
             ...['high', 'medium', 'low'].map((priority) {
               final color = _priorityColor(priority);
               final isSelected =
-                  _priorityLabel(goal.icon) == _priorityLabel(priority);
+                  _priorityLabel(goal.priority) == _priorityLabel(priority);
               return GestureDetector(
                 onTap: () {
                   ref.read(savingsGoalsDaoProvider).updateGoal(
-                        goal.copyWith(icon: priority),
+                        goal.copyWith(priority: priority),
                       );
                   Navigator.pop(ctx);
                 },
@@ -973,7 +983,9 @@ class _AddGoalSheetState
   Widget _buildPreview(
       Color color, String name, double amount) {
     final path = _imagePath;
-    final hasImage = path != null && File(path).existsSync();
+    // The stored path is authoritative; Image handles a missing file
+    // via its errorBuilder, so no synchronous disk check in build().
+    final hasImage = path != null;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -985,7 +997,14 @@ class _AddGoalSheetState
           fit: StackFit.expand,
           children: [
             if (hasImage)
-              Image.file(File(path), fit: BoxFit.cover),
+              Image.file(
+                File(path),
+                fit: BoxFit.cover,
+                cacheWidth: 800,
+                cacheHeight: 360,
+                errorBuilder: (_, __, ___) =>
+                    const SizedBox.shrink(),
+              ),
             // Scrim keeps the labels legible over any photo.
             DecoratedBox(
               decoration: BoxDecoration(
@@ -1254,7 +1273,7 @@ class _AddGoalSheetState
             name: _nameController.text.trim(),
             targetAmount: _parseAmount(_amountController.text)!,
             color: Value(_selectedColor),
-            icon: Value(_priority),
+            priority: Value(_priority),
             imagePath: Value(_imagePath),
             deadline: Value(_deadline),
           ),

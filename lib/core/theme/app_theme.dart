@@ -29,7 +29,9 @@ class AppColors {
   // Text
   static const textPrimary = Color(0xFFFFFFFF);
   static const textSecondary = Color(0xFF888888);
-  static const textHint = Color(0xFF555555);
+  // Bumped from 0xFF555555, which was ~2.4:1 on the card background and
+  // illegible for small hint text; 0xFF8A8A8A clears WCAG AA.
+  static const textHint = Color(0xFF8A8A8A);
 
   static Color fromHex(String hex) {
     final buffer = StringBuffer();

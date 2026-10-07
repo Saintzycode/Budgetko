@@ -311,7 +311,7 @@ class SettingsScreen extends ConsumerWidget {
     final controller = TextEditingController(
       text: current > 0 ? current.toStringAsFixed(0) : '',
     );
-    showDialog(
+    final future = showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -353,6 +353,7 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+    future.whenComplete(controller.dispose);
   }
 
   void _showBudgetDialog(
@@ -360,7 +361,7 @@ class SettingsScreen extends ConsumerWidget {
     final controller = TextEditingController(
       text: current > 0 ? current.toStringAsFixed(0) : '',
     );
-    showDialog(
+    final future = showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -403,6 +404,7 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+    future.whenComplete(controller.dispose);
   }
 
   Future<void> _backupData(
