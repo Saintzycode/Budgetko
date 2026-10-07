@@ -670,6 +670,19 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// Wipes the user's recorded activity. Wallets and categories are kept
+  /// because they are the structure the app tracks activity against, not
+  /// activity itself. Runs in a single transaction so a failure cannot
+  /// leave the database partially cleared.
+  Future<void> clearAllUserData() async {
+    await transaction(() async {
+      await delete(transactions).go();
+      await delete(savingsGoals).go();
+      await delete(recurringTransactions).go();
+      await delete(appNotifications).go();
+    });
+  }
+
   Future<int> processDueRecurring({DateTime? now}) async {
     final runAt = now ?? DateTime.now();
     final today = _dateOnly(runAt);

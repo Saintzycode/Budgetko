@@ -595,9 +595,10 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  void _showClearDialog(
-      BuildContext context, WidgetRef ref) {
-    showDialog(
+  Future<void> _showClearDialog(
+      BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bgCard,
@@ -605,13 +606,13 @@ class SettingsScreen extends ConsumerWidget {
             style:
                 TextStyle(color: AppColors.textPrimary)),
         content: const Text(
-          'This will permanently delete all transactions, goals, and settings. This cannot be undone.',
+          'This will permanently delete all transactions, goals, recurring entries and notifications. This cannot be undone.',
           style:
               TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel',
                 style: TextStyle(
                     color: AppColors.textSecondary)),
@@ -619,12 +620,41 @@ class SettingsScreen extends ConsumerWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.expense),
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Clear all'),
           ),
         ],
       ),
     );
+    if (confirmed != true) return;
+    try {
+      await ref.read(databaseProvider).clearAllUserData();
+      invalidateTransactionAggregates(ref);
+      ref.invalidate(allGoalsProvider);
+      ref.invalidate(activeGoalsProvider);
+      ref.invalidate(notificationsProvider);
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.bgCard,
+          content: Text(
+            'All data cleared',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.bgCard,
+          content: Text(
+            'Could not clear data: $e',
+            style: const TextStyle(color: AppColors.expense),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _exportExcel(

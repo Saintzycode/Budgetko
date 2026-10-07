@@ -324,8 +324,12 @@ class _FloatingNavBar extends StatelessWidget {
                     ),
                     child: Container(
                       decoration: BoxDecoration(
+                        // Near-opaque so list text scrolling beneath the
+                        // floating bar reads as a soft backdrop instead of
+                        // colliding with the icons, while the blur above
+                        // still gives the glass effect.
                         color: AppColors.bgCard
-                            .withValues(alpha: 0.72),
+                            .withValues(alpha: 0.94),
                         borderRadius: BorderRadius.circular(31),
                         border: Border.all(
                           color:

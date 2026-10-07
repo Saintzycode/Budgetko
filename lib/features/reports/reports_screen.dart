@@ -7,11 +7,21 @@ import '../../../../data/repositories/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 
-class ReportsScreen extends ConsumerWidget {
+class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends ConsumerState<ReportsScreen> {
+  // last6MonthsProvider returns oldest -> newest, so the last index is
+  // the current month. The overview shows a single month at a time and
+  // lets the user step back through history.
+  int _monthIndex = 5;
+
+  @override
+  Widget build(BuildContext context) {
     final last6Async = ref.watch(last6MonthsProvider);
     final spendingAsync = ref.watch(spendingByCategoryProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
@@ -43,9 +53,9 @@ class ReportsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
 
-          // ── 6 month bar chart ──────────────────────────────
+          // ── Month overview (single month, navigable) ───
           const Text(
-            '6-Month Overview',
+            'Monthly Overview',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 16,
@@ -54,7 +64,16 @@ class ReportsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           last6Async.when(
-            data: (months) => _BarChart(months: months),
+            data: (months) {
+              // Guard against a shorter list if the provider changes.
+              final index = _monthIndex.clamp(0, months.length - 1);
+              return _MonthBarChart(
+                months: months,
+                index: index,
+                onIndexChanged: (i) =>
+                    setState(() => _monthIndex = i),
+              );
+            },
             loading: () =>
                 const _LoadingCard(height: 220),
             error: (e, _) => Text('$e'),
@@ -187,43 +206,18 @@ class _StatItem extends StatelessWidget {
 
 // ── 6 month bar chart ──────────────────────────────────────────────────────────
 
-class _BarChart extends StatelessWidget {
+class _MonthBarChart extends StatelessWidget {
   final List<MonthlyTotals> months;
-  const _BarChart({required this.months});
-
-  LineChartBarData _lineData({
-    required Color color,
-    required List<double> values,
-  }) {
-    return LineChartBarData(
-      spots: List.generate(
-        values.length,
-        (index) => FlSpot(index.toDouble(), values[index]),
-      ),
-      isCurved: true,
-      color: color,
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: FlDotData(
-        show: true,
-        getDotPainter: (spot, percent, barData, index) =>
-            FlDotCirclePainter(
-          radius: 3,
-          color: color,
-          strokeWidth: 2,
-          strokeColor: AppColors.bgCard,
-        ),
-      ),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withValues(alpha: 0.08),
-      ),
-    );
-  }
+  final int index;
+  final ValueChanged<int> onIndexChanged;
+  const _MonthBarChart({
+    required this.months,
+    required this.index,
+    required this.onIndexChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     if (months.isEmpty) {
       return const GlowContainer(
         glowColor: AppColors.bgSurface,
@@ -237,41 +231,90 @@ class _BarChart extends StatelessWidget {
       );
     }
 
-    final maxAmount = months.fold(0.0, (max, month) {
-      final monthMax =
-          month.income > month.expense ? month.income : month.expense;
-      return monthMax > max ? monthMax : max;
-    });
-    final chartMaxY = maxAmount <= 0 ? 1.0 : maxAmount * 1.2;
+    final totals = months[index];
+    final now = DateTime.now();
+    final date = DateTime(now.year, now.month - ((months.length - 1) - index));
+    final maxValue = [totals.income, totals.expense].reduce((a, b) => a > b ? a : b);
+    final chartMaxY = maxValue <= 0 ? 1.0 : maxValue * 1.25;
 
     return GlowContainer(
       glowColor: AppColors.teal,
       glowRadius: 15,
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       child: Column(
         children: [
+          // Month navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavArrow(
+                icon: Icons.chevron_left,
+                enabled: index > 0,
+                onTap: () => onIndexChanged(index - 1),
+              ),
+              Text(
+                Formatters.monthShort(date),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              _NavArrow(
+                icon: Icons.chevron_right,
+                enabled: index < months.length - 1,
+                onTap: () => onIndexChanged(index + 1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 200,
-            child: LineChart(
-              LineChartData(
-                minY: 0,
+            height: 160,
+            child: BarChart(
+              BarChartData(
                 maxY: chartMaxY,
-                minX: 0,
-                maxX: (months.length - 1).toDouble(),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
+                barGroups: [
+                  BarChartGroupData(
+                    x: 0,
+                    barRods: [
+                      BarChartRodData(
+                        toY: totals.income,
+                        color: AppColors.income,
+                        width: 26,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(6),
+                        ),
+                      ),
+                    ],
+                  ),
+                  BarChartGroupData(
+                    x: 1,
+                    barRods: [
+                      BarChartRodData(
+                        toY: totals.expense,
+                        color: AppColors.expense,
+                        width: 26,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                alignment: BarChartAlignment.spaceAround,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
                     tooltipBgColor: AppColors.bgCard,
-                    getTooltipItems: (spots) => spots.map((spot) {
-                      final color = spot.bar.color ?? AppColors.teal;
-                      return LineTooltipItem(
-                        Formatters.currencyCompact(spot.y),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        Formatters.currencyCompact(rod.toY),
                         TextStyle(
-                          color: color,
+                          color: rod.color,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
                 ),
                 titlesData: FlTitlesData(
@@ -280,28 +323,16 @@ class _BarChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       interval: 1,
-                      reservedSize: 30,
+                      reservedSize: 28,
                       getTitlesWidget: (value, meta) {
-                        final monthIndex =
-                            value.toInt();
-                        if (monthIndex < 0 ||
-                            monthIndex >= months.length) {
-                          return const SizedBox.shrink();
-                        }
-                        final date = DateTime(
-                          now.year,
-                          now.month - (5 - monthIndex),
-                        );
+                        final label = value.toInt() == 0 ? 'Income' : 'Expenses';
                         return Padding(
-                          padding: const EdgeInsets.only(
-                              top: 6),
+                          padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            Formatters.monthShort(date)
-                                .split(' ')[0],
+                            label,
                             style: const TextStyle(
-                              color:
-                                  AppColors.textSecondary,
-                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
                             ),
                           ),
                         );
@@ -309,57 +340,49 @@ class _BarChart extends StatelessWidget {
                     ),
                   ),
                   leftTitles: const AxisTitles(
-                    sideTitles:
-                        SideTitles(showTitles: false),
+                    sideTitles: SideTitles(showTitles: false),
                   ),
                   topTitles: const AxisTitles(
-                    sideTitles:
-                        SideTitles(showTitles: false),
+                    sideTitles: SideTitles(showTitles: false),
                   ),
                   rightTitles: const AxisTitles(
-                    sideTitles:
-                        SideTitles(showTitles: false),
+                    sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) =>
-                      const   FlLine(
+                  getDrawingHorizontalLine: (value) => const FlLine(
                     color: AppColors.bgSurface,
                     strokeWidth: 0.5,
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  _lineData(
-                    color: AppColors.income,
-                    values: [
-                      for (final month in months) month.income,
-                    ],
-                  ),
-                  _lineData(
-                    color: AppColors.expense,
-                    values: [
-                      for (final month in months) month.expense,
-                    ],
-                  ),
-                ],
               ),
             ),
           ),
           const SizedBox(height: 12),
-          // Legend
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // Summary row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _LegendDot(
-                  color: AppColors.income,
-                  label: 'Income'),
-               SizedBox(width: 16),
-              _LegendDot(
-                  color: AppColors.expense,
-                  label: 'Expenses'),
+              _MonthStat(
+                label: 'Income',
+                value: Formatters.currencyCompact(totals.income),
+                color: AppColors.income,
+              ),
+              _MonthStat(
+                label: 'Expenses',
+                value: Formatters.currencyCompact(totals.expense),
+                color: AppColors.expense,
+              ),
+              _MonthStat(
+                label: 'Saved',
+                value: Formatters.currencyCompact(totals.savings),
+                color: totals.savings >= 0
+                    ? AppColors.teal
+                    : AppColors.expense,
+              ),
             ],
           ),
         ],
@@ -368,36 +391,90 @@ class _BarChart extends StatelessWidget {
   }
 }
 
-class _LegendDot extends StatelessWidget {
-  final Color color;
-  final String label;
-  const _LegendDot(
-      {required this.color, required this.label});
+class _NavArrow extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+  const _NavArrow({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: enabled
+              ? AppColors.bgSurface
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
         ),
-        const SizedBox(width: 6),
+        child: Icon(
+          icon,
+          size: 22,
+          color: enabled
+              ? AppColors.textPrimary
+              : AppColors.textHint.withValues(alpha: 0.4),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _MonthStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
         Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
     );
   }
 }
+
 
 // ── Category breakdown ─────────────────────────────────────────────────────────
 
