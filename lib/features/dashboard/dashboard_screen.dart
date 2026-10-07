@@ -79,6 +79,7 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
           children: [
+            const _GreetingHeader(),
             // ── Today ────────────────────────────────────────────
             const _TodayCard(),
             const SizedBox(height: 12),
@@ -1641,6 +1642,65 @@ class _TransactionTile extends StatelessWidget {
 }
 
 // ── Today card ─────────────────────────────────────────────────────────────────
+
+/// Time aware greeting using the name chosen during onboarding. Hidden
+/// entirely when there is no name, so pre-onboarding states stay clean.
+class _GreetingHeader extends ConsumerWidget {
+  const _GreetingHeader();
+
+  static String _salutation(int hour) {
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  static String _dayLine() {
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    final now = DateTime.now();
+    return '${weekdays[now.weekday - 1]}, ${Formatters.monthShort(now)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name = ref.watch(usernameProvider).trim();
+    if (name.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14, top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${_salutation(DateTime.now().hour)}, $name',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _dayLine(),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _TodayCard extends StatefulWidget {
   const _TodayCard();

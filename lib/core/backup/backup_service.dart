@@ -140,6 +140,7 @@ class BackupService {
           }
       ],
       'settings': {
+        'username': prefs.getString(kUsernameKey) ?? '',
         'monthlyIncome': prefs.getDouble('monthly_income') ?? 0,
         'monthlyBudget': prefs.getDouble('monthly_budget') ?? 0,
         'carryover': prefs.getBool(kCarryoverEnabledKey) ?? false,
@@ -502,6 +503,10 @@ class BackupService {
     if (raw is! Map<String, dynamic>) return;
     final prefs = await SharedPreferences.getInstance();
     try {
+      final username = raw['username'];
+      if (username is String && username.trim().isNotEmpty) {
+        await prefs.setString(kUsernameKey, username.trim());
+      }
       final income = raw['monthlyIncome'];
       if (income is num) {
         await prefs.setDouble('monthly_income', income.toDouble());

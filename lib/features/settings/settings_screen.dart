@@ -539,7 +539,10 @@ class SettingsScreen extends ConsumerWidget {
         ..invalidate(monthlyBudgetProvider)
         ..invalidate(monthlyIncomeProvider)
         ..invalidate(carryoverEnabledProvider)
-        ..invalidate(notificationSettingsProvider);
+        ..invalidate(notificationSettingsProvider)
+        // The restore wrote the name straight to preferences, so refresh
+        // the notifier that caches it rather than setting it again.
+        ..invalidate(usernameProvider);
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(
@@ -593,6 +596,12 @@ class SettingsScreen extends ConsumerWidget {
       ref.invalidate(allGoalsProvider);
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(notificationsProvider);
+      // Reset the preferences too, so clearing everything genuinely
+      // returns the app to a fresh install. Resetting onboarding flips
+      // the router's refreshListenable, which redirects to onboarding on
+      // its own, so no navigation call is needed here.
+      await resetOnboarding();
+      await ref.read(usernameProvider.notifier).clear();
     } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
