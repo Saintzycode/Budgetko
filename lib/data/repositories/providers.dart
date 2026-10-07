@@ -591,6 +591,42 @@ Future<void> resetOnboarding() async {
   onboardingComplete.value = false;
 }
 
+// ── Profile ────────────────────────────────────────────────────────────────────
+
+const String kUsernameKey = 'profile_username';
+
+/// Display name chosen during onboarding. Kept in preferences rather than
+/// the database so clearing data can drop it along with everything else
+/// and put the app back to a fresh install.
+final usernameProvider = StateNotifierProvider<UsernameNotifier, String>(
+  (ref) => UsernameNotifier(),
+);
+
+class UsernameNotifier extends StateNotifier<String> {
+  UsernameNotifier() : super('') {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getString(kUsernameKey) ?? '';
+  }
+
+  Future<void> setUsername(String value) async {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kUsernameKey, trimmed);
+    state = trimmed;
+  }
+
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kUsernameKey);
+    state = '';
+  }
+}
+
 // ── Shared invalidation ─────────────────────────────────────────────────────────
 
 void invalidateTransactionAggregates(WidgetRef ref) {

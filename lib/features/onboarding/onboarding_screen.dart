@@ -19,22 +19,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       TextEditingController();
   final TextEditingController _budgetController =
       TextEditingController();
+  final TextEditingController _nameController =
+      TextEditingController();
   int _page = 0;
   bool _saving = false;
 
-  static const int _pageCount = 4;
+  static const int _pageCount = 5;
 
   @override
   void dispose() {
     _controller.dispose();
     _incomeController.dispose();
     _budgetController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   bool get _isLast => _page == _pageCount - 1;
 
+  bool get _nameMissing => _page == 1 && _nameController.text.trim().isEmpty;
+
   void _next() {
+    // The name is what the dashboard greets with, so it is required
+    // rather than skippable.
+    if (_nameMissing) return;
     if (_isLast) {
       _finish();
     } else {
@@ -56,6 +64,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _finish() async {
     if (_saving) return;
     setState(() => _saving = true);
+    final name = _nameController.text.trim();
+    if (name.isNotEmpty) {
+      await ref.read(usernameProvider.notifier).setUsername(name);
+    }
     final income = double.tryParse(
       _incomeController.text.replaceAll(',', '').trim(),
     );
@@ -108,6 +120,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
                   const _WelcomePage(),
+                  _UsernamePage(
+                    controller: _nameController,
+                    onChanged: () => setState(() {}),
+                  ),
                   _AmountPage(
                     controller: _incomeController,
                     icon: Icons.account_balance_wallet_outlined,
@@ -177,9 +193,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: SizedBox(
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _saving ? null : _next,
+                        onPressed: _saving || _nameMissing
+                            ? null
+                            : _next,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.teal,
+                          disabledBackgroundColor:
+                              AppColors.bgSurface,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius:
@@ -283,6 +303,100 @@ class _WelcomePage extends StatelessWidget {
             icon: Icons.savings_outlined,
             title: 'Reach your goals',
             subtitle: 'Set savings targets and track progress',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UsernamePage extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+  const _UsernamePage({
+    required this.controller,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.teal.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.person_outline,
+              color: AppColors.teal,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 28),
+          const Text(
+            'What should we call you?',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your dashboard will greet you by name. '
+            'It stays on this device only.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 28),
+          TextField(
+            controller: controller,
+            onChanged: (_) => onChanged(),
+            autofocus: false,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.done,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Your name',
+              hintStyle: const TextStyle(
+                color: AppColors.textHint,
+                fontSize: 16,
+              ),
+              prefixIcon: const Icon(
+                Icons.badge_outlined,
+                size: 20,
+                color: AppColors.textHint,
+              ),
+              filled: true,
+              fillColor: AppColors.bgCard,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide:
+                    const BorderSide(color: AppColors.bgSurface, width: 0.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide:
+                    const BorderSide(color: AppColors.teal, width: 1),
+              ),
+            ),
           ),
         ],
       ),
